@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Smart changelog display** - Shows "What's New" only once per version update to reduce notification fatigue
+- **Enhanced markdown formatting** - Bold text in changelog now renders properly in terminal output
 
 ## [v0.1.3] - 2025-08-09
 
