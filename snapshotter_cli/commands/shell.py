@@ -340,17 +340,45 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
         )
     )
 
-    # Show latest changes if available
-    latest_changes = get_latest_changes()
-    if latest_changes:
-        console.print(
-            Panel(
-                latest_changes,
-                title="[bold blue]What's New[/bold blue]",
-                border_style="blue",
-                padding=(1, 2),
+    # Show latest changes if available (only once per version)
+    from snapshotter_cli import get_version_string
+    from snapshotter_cli.utils.deployment import CONFIG_DIR
+
+    # Get the full version string including commit hash
+    full_version = get_version_string()
+
+    # Check if we should show the changelog
+    version_file = CONFIG_DIR / ".last_shown_changelog_version"
+    should_show_changelog = True
+
+    try:
+        if version_file.exists():
+            last_shown_version = version_file.read_text().strip()
+            if last_shown_version == full_version:
+                should_show_changelog = False
+    except Exception:
+        # If we can't read the file, show the changelog
+        pass
+
+    if should_show_changelog:
+        latest_changes = get_latest_changes()
+        if latest_changes:
+            console.print(
+                Panel(
+                    latest_changes,
+                    title="[bold blue]What's New[/bold blue]",
+                    border_style="blue",
+                    padding=(1, 2),
+                )
             )
-        )
+
+            # Save the current version as shown
+            try:
+                CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+                version_file.write_text(full_version)
+            except Exception:
+                # Silently fail if we can't write the file
+                pass
 
     # Build command map from the app
     commands = {}
