@@ -278,9 +278,13 @@ def configure_command(
     )
 
     # Prompt user for max stream pool size
+    # Use existing value as default if updating, otherwise use recommended value
+    default_max_stream_pool_size = existing_env_vars.get(
+        "MAX_STREAM_POOL_SIZE", str(recommended_max_stream_pool_size)
+    )
     final_max_stream_pool_size = max_stream_pool_size or Prompt.ask(
         "👉 Enter max stream pool size for local collector",
-        default=str(recommended_max_stream_pool_size),
+        default=default_max_stream_pool_size,
     )
     if int(final_max_stream_pool_size) > recommended_max_stream_pool_size:
         console.print(
@@ -289,10 +293,14 @@ def configure_command(
         )
         final_max_stream_pool_size = str(recommended_max_stream_pool_size)
 
-    # Prompt user for connection refresh interval with a default of 120 seconds
+    # Prompt user for connection refresh interval with a default of 60 seconds
+    # Use existing value as default if updating, otherwise use 60
+    default_connection_refresh_interval = existing_env_vars.get(
+        "CONNECTION_REFRESH_INTERVAL_SEC", "60"
+    )
     final_connection_refresh_interval = connection_refresh_interval or Prompt.ask(
-        "👉 Enter connection refresh interval for local collector to sequencer",
-        default="75",
+        "👉 Enter connection refresh interval for local collector to sequencer (seconds)",
+        default=default_connection_refresh_interval,
     )
     env_contents = []
     if final_wallet_address:
