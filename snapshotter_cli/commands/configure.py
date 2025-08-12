@@ -279,6 +279,17 @@ def configure_command(
         or "https://tg-testing.powerloom.io/"
     )
 
+    # Prompt for Telegram notification cooldown only if chat ID is provided
+    final_telegram_cooldown = ""
+    if final_telegram_chat:
+        default_cooldown = existing_env_vars.get(
+            "TELEGRAM_NOTIFICATION_COOLDOWN", "300"
+        )
+        final_telegram_cooldown = Prompt.ask(
+            "👉 Enter Telegram notification cooldown in seconds (optional)",
+            default=default_cooldown,
+        )
+
     # Don't prompt for max stream pool size - use existing or recommended value
     final_max_stream_pool_size = (
         max_stream_pool_size
@@ -313,6 +324,8 @@ def configure_command(
         env_contents.append(f"TELEGRAM_CHAT_ID={final_telegram_chat}")
     if final_telegram_url:
         env_contents.append(f"TELEGRAM_REPORTING_URL={final_telegram_url}")
+    if final_telegram_cooldown:
+        env_contents.append(f"TELEGRAM_NOTIFICATION_COOLDOWN={final_telegram_cooldown}")
     if final_max_stream_pool_size:
         env_contents.append(f"MAX_STREAM_POOL_SIZE={final_max_stream_pool_size}")
     if final_connection_refresh_interval:
