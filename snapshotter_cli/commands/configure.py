@@ -272,35 +272,33 @@ def configure_command(
         "👉 Enter Telegram chat ID (optional)",
         default=existing_env_vars.get("TELEGRAM_CHAT_ID", ""),
     )
-    final_telegram_url = telegram_reporting_url or Prompt.ask(
-        "👉 Enter Telegram reporting URL (optional)",
-        default=existing_env_vars.get("TELEGRAM_REPORTING_URL", ""),
+    # Don't prompt for Telegram reporting URL - use existing or default
+    final_telegram_url = (
+        telegram_reporting_url
+        or existing_env_vars.get("TELEGRAM_REPORTING_URL")
+        or "https://tg-testing.powerloom.io/"
     )
 
-    # Prompt user for max stream pool size
-    # Use existing value as default if updating, otherwise use recommended value
-    default_max_stream_pool_size = existing_env_vars.get(
-        "MAX_STREAM_POOL_SIZE", str(recommended_max_stream_pool_size)
+    # Don't prompt for max stream pool size - use existing or recommended value
+    final_max_stream_pool_size = (
+        max_stream_pool_size
+        or existing_env_vars.get("MAX_STREAM_POOL_SIZE")
+        or str(recommended_max_stream_pool_size)
     )
-    final_max_stream_pool_size = max_stream_pool_size or Prompt.ask(
-        "👉 Enter max stream pool size for local collector",
-        default=default_max_stream_pool_size,
-    )
+
+    # Ensure it doesn't exceed recommended value
     if int(final_max_stream_pool_size) > recommended_max_stream_pool_size:
         console.print(
-            f"⚠️ MAX_STREAM_POOL_SIZE is greater than the recommended {recommended_max_stream_pool_size} for {cpus} logical CPUs, this may cause instability! Choosing the recommended value.",
-            style="bold red",
+            f"⚠️ MAX_STREAM_POOL_SIZE ({final_max_stream_pool_size}) is greater than the recommended {recommended_max_stream_pool_size} for {cpus} logical CPUs, using recommended value.",
+            style="yellow",
         )
         final_max_stream_pool_size = str(recommended_max_stream_pool_size)
 
-    # Prompt user for connection refresh interval with a default of 60 seconds
-    # Use existing value as default if updating, otherwise use 60
-    default_connection_refresh_interval = existing_env_vars.get(
-        "CONNECTION_REFRESH_INTERVAL_SEC", "60"
-    )
-    final_connection_refresh_interval = connection_refresh_interval or Prompt.ask(
-        "👉 Enter connection refresh interval for local collector to sequencer (seconds)",
-        default=default_connection_refresh_interval,
+    # Don't prompt for connection refresh interval - use existing or 60 seconds
+    final_connection_refresh_interval = (
+        connection_refresh_interval
+        or existing_env_vars.get("CONNECTION_REFRESH_INTERVAL_SEC")
+        or "60"
     )
     env_contents = []
     if final_wallet_address:
