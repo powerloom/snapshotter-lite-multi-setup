@@ -59,7 +59,7 @@ jobs:
       run: uv run mypy snapshotter_cli/ || true  # Allow mypy to fail for now
 
     - name: Run tests
-      run: uv run pytest tests/ -v || echo "No tests found, continuing..."
+      run: uv run pytest tests/ -v
 
     - name: Test CLI
       run: |
