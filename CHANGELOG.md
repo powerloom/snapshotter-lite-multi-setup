@@ -7,9 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Configuration value preservation (#76)** - Technical parameters now properly preserve existing values when updating configuration
+
 ### Changed
+- **Streamlined configuration** - Removed prompts for TELEGRAM_REPORTING_URL, MAX_STREAM_POOL_SIZE, and CONNECTION_REFRESH_INTERVAL_SEC
 - **Smart changelog display** - Shows "What's New" only once per version update to reduce notification fatigue
 - **Enhanced markdown formatting** - Bold text in changelog now renders properly in terminal output
+- **Connection refresh interval default** - Changed from 75 to 60 seconds for better performance
+
+### Added
+- **Conditional Telegram cooldown prompt** - Only asks for notification cooldown when Telegram chat ID is provided
+
+### Improved
+- **Configuration UX** - Reduced from 9+ prompts to 6-7 essential ones, auto-setting technical parameters with smart defaults
 
 ## [v0.1.3] - 2025-08-09
 

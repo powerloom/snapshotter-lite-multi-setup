@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional
 
+import psutil
 import typer
 from dotenv import dotenv_values
 from rich.panel import Panel
@@ -235,8 +236,6 @@ def configure_command(
         )
 
     # Calculate recommended max stream pool size based on CPU count
-    import psutil
-
     cpus = psutil.cpu_count(logical=True)
     if cpus >= 2 and cpus < 4:
         recommended_max_stream_pool_size = 40
@@ -272,27 +271,44 @@ def configure_command(
         "👉 Enter Telegram chat ID (optional)",
         default=existing_env_vars.get("TELEGRAM_CHAT_ID", ""),
     )
-    final_telegram_url = telegram_reporting_url or Prompt.ask(
-        "👉 Enter Telegram reporting URL (optional)",
-        default=existing_env_vars.get("TELEGRAM_REPORTING_URL", ""),
+    # Don't prompt for Telegram reporting URL - use existing or default
+    final_telegram_url = (
+        telegram_reporting_url
+        or existing_env_vars.get("TELEGRAM_REPORTING_URL")
+        or "https://tg-testing.powerloom.io/"
     )
 
-    # Prompt user for max stream pool size
-    final_max_stream_pool_size = max_stream_pool_size or Prompt.ask(
-        "👉 Enter max stream pool size for local collector",
-        default=str(recommended_max_stream_pool_size),
+    # Prompt for Telegram notification cooldown only if chat ID is provided
+    final_telegram_cooldown = ""
+    if final_telegram_chat:
+        default_cooldown = existing_env_vars.get(
+            "TELEGRAM_NOTIFICATION_COOLDOWN", "300"
+        )
+        final_telegram_cooldown = Prompt.ask(
+            "👉 Enter Telegram notification cooldown in seconds (optional)",
+            default=default_cooldown,
+        )
+
+    # Don't prompt for max stream pool size - use existing or recommended value
+    final_max_stream_pool_size = (
+        max_stream_pool_size
+        or existing_env_vars.get("MAX_STREAM_POOL_SIZE")
+        or str(recommended_max_stream_pool_size)
     )
+
+    # Ensure it doesn't exceed recommended value
     if int(final_max_stream_pool_size) > recommended_max_stream_pool_size:
         console.print(
-            f"⚠️ MAX_STREAM_POOL_SIZE is greater than the recommended {recommended_max_stream_pool_size} for {cpus} logical CPUs, this may cause instability! Choosing the recommended value.",
-            style="bold red",
+            f"⚠️ MAX_STREAM_POOL_SIZE ({final_max_stream_pool_size}) is greater than the recommended {recommended_max_stream_pool_size} for {cpus} logical CPUs, using recommended value.",
+            style="yellow",
         )
         final_max_stream_pool_size = str(recommended_max_stream_pool_size)
 
-    # Prompt user for connection refresh interval with a default of 120 seconds
-    final_connection_refresh_interval = connection_refresh_interval or Prompt.ask(
-        "👉 Enter connection refresh interval for local collector to sequencer",
-        default="75",
+    # Don't prompt for connection refresh interval - use existing or 60 seconds
+    final_connection_refresh_interval = (
+        connection_refresh_interval
+        or existing_env_vars.get("CONNECTION_REFRESH_INTERVAL_SEC")
+        or "60"
     )
     env_contents = []
     if final_wallet_address:
@@ -307,6 +323,8 @@ def configure_command(
         env_contents.append(f"TELEGRAM_CHAT_ID={final_telegram_chat}")
     if final_telegram_url:
         env_contents.append(f"TELEGRAM_REPORTING_URL={final_telegram_url}")
+    if final_telegram_cooldown:
+        env_contents.append(f"TELEGRAM_NOTIFICATION_COOLDOWN={final_telegram_cooldown}")
     if final_max_stream_pool_size:
         env_contents.append(f"MAX_STREAM_POOL_SIZE={final_max_stream_pool_size}")
     if final_connection_refresh_interval:

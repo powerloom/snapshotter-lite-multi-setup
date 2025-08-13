@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 from typing import Dict, Optional
 
+from dotenv import dotenv_values
+
 from snapshotter_cli.utils.console import console
 
 
@@ -31,8 +33,6 @@ def get_credential(
         cwd_dot_env_path = Path(os.getcwd()) / ".env"
         if cwd_dot_env_path.exists():
             try:
-                from dotenv import dotenv_values
-
                 cwd_env_vars = dotenv_values(cwd_dot_env_path)
                 if env_var_name in cwd_env_vars:
                     return cwd_env_vars[env_var_name]
@@ -67,8 +67,6 @@ def get_source_chain_rpc_url(
         cwd_dot_env_path = Path(os.getcwd()) / ".env"
         if cwd_dot_env_path.exists():
             try:
-                from dotenv import dotenv_values
-
                 cwd_env_vars = dotenv_values(cwd_dot_env_path)
                 # Try chain-specific var first
                 if source_chain_specific_env_var in cwd_env_vars:

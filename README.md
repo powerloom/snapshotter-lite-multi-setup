@@ -22,7 +22,7 @@ powerloom-snapshotter-cli shell
 powerloom-snapshotter> configure
 powerloom-snapshotter> deploy
 powerloom-snapshotter> list
-powerloom-snapshotter> logs --follow
+powerloom-snapshotter> status
 ```
 
 💡 **Why use shell mode?** The CLI has a startup time for each command. Shell mode eliminates this delay, giving you instant command execution!
@@ -52,7 +52,7 @@ The CLI has been enhanced with several UX improvements:
 - **📋 Integrated Changelog**: View latest changes on shell startup, full changelog with `changelog` command
 - **Easy Configuration**: Set up credentials once for each chain/market combination
 - **Simple Deployment**: Deploy multiple nodes with a single command
-- **Instance Management**: Start, stop, restart, and cleanup nodes easily
+- **Instance Management**: Deploy and monitor snapshotter nodes easily
 - **Cross-Platform**: Pre-built binaries for Linux (x86_64, ARM64) and macOS (ARM64)
 - **Native ARM64 Builds**: Uses GitHub's native ARM64 runners for 4x faster builds
 - **Command History**: Navigate previous commands with arrow keys in shell mode

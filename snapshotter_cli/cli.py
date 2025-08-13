@@ -1,5 +1,6 @@
 import os
 import shutil
+import traceback
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -9,6 +10,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.tree import Tree
 
+from snapshotter_cli.utils.changelog import display_changelog
 from snapshotter_cli.utils.console import Prompt, console
 
 from . import __version__, get_version_string
@@ -25,6 +27,7 @@ from .utils.deployment import (
     run_git_command,
 )
 from .utils.docker_utils import get_docker_container_status_for_instance
+from .utils.evm import fetch_owned_slots
 from .utils.models import (
     ChainConfig,
     ChainMarketData,
@@ -105,8 +108,6 @@ def version_callback(value: bool):
 def changelog_callback(value: bool):
     """Show changelog and exit."""
     if value:
-        from snapshotter_cli.utils.changelog import display_changelog
-
         display_changelog()
         raise typer.Exit()
 
@@ -167,8 +168,6 @@ def load_default_config(
         ctx.obj = cli_obj
     except Exception as e:
         console.print(f"🚨 Error in load_default_config: {e}", style="bold red")
-        import traceback
-
         console.print(traceback.format_exc())
         raise typer.Exit(1)
 
@@ -187,7 +186,7 @@ app.add_typer(identity_app, name="identity")
 @app.command()
 def shell(ctx: typer.Context):
     """Start an interactive shell session for faster command execution."""
-    shell_command(ctx)
+    shell_command(ctx, app)
 
 
 # class Environment(str, Enum):
@@ -532,8 +531,6 @@ def deploy(
             protocol_state_contract_address = (
                 first_market.powerloomProtocolStateContractAddress
             )
-
-            from .utils.evm import fetch_owned_slots
 
             fetched_slots_result = fetch_owned_slots(
                 wallet_address=final_wallet_address,
@@ -905,12 +902,12 @@ def status(
     if environment:
         console.print(
             f"🔍 Filtering for environment: [bold cyan]{environment}[/bold cyan]",
-            style="info",
+            style="dim",
         )
     if data_market:
         console.print(
             f"🔍 Filtering for data market: [bold cyan]{data_market}[/bold cyan]",
-            style="info",
+            style="dim",
         )
 
     all_screen_sessions = list_snapshotter_screen_sessions()

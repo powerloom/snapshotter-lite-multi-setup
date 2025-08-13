@@ -1,16 +1,22 @@
+import os
 import shlex
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import click
 import typer
 from rich.console import Console
 from rich.pager import Pager
 from rich.panel import Panel
 from rich.text import Text
+from typer.main import get_command
 
+from snapshotter_cli import get_version_string
 from snapshotter_cli.utils.changelog import display_changelog, get_latest_changes
 from snapshotter_cli.utils.console import Prompt, console
+from snapshotter_cli.utils.deployment import CONFIG_DIR
 
 try:
     import readline
@@ -57,8 +63,6 @@ def command_completer(text: str, state: int) -> Optional[str]:
     # If we're completing options or subcommands for a command
     cmd_name = parts[0]
     if cmd_name in COMMANDS:
-        import click
-
         click_cmd = COMMANDS[cmd_name]
 
         # Check if this is a command group (has subcommands)
@@ -118,8 +122,6 @@ def get_missing_parameters(
     click_cmd, args: List[str], parent_ctx: Optional[typer.Context] = None
 ) -> List[str]:
     """Interactively prompt for missing required parameters."""
-    import click
-
     # Parse what parameters were already provided
     provided_params = {}
     i = 0
@@ -286,9 +288,6 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
     # Setup readline history and autocomplete if available
     history_file = None
     if HAS_READLINE:
-        import os
-        import tempfile
-
         # Setup history
         try:
             history_file = os.path.join(
@@ -320,9 +319,6 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
             # Avoid 'bind' command on Linux as it can cause input issues (e.g., lowercase 'b' removal)
             readline.parse_and_bind("tab: complete")
 
-    # Import version
-    from snapshotter_cli import get_version_string
-
     # Build the welcome message
     welcome_msg = f"[bold green]Powerloom Snapshotter CLI v{get_version_string()} - Interactive Mode[/bold green]\n"
     welcome_msg += "Type 'help' for available commands, 'exit' or 'quit' to leave.\n"
@@ -341,9 +337,6 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
     )
 
     # Show latest changes if available (only once per version)
-    from snapshotter_cli import get_version_string
-    from snapshotter_cli.utils.deployment import CONFIG_DIR
-
     # Get the full version string including commit hash
     full_version = get_version_string()
 
@@ -384,8 +377,6 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
     commands = {}
 
     # Get the Click command group from Typer app
-    from typer.main import get_command
-
     click_group = get_command(app)
 
     # Iterate through registered commands
@@ -461,13 +452,9 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
                             continue
 
                     # Create a new context for this command
-                    from typer.main import get_command
-
                     click_group = get_command(app)
 
                     # Use Click's Context to invoke the command
-                    import click
-
                     # Create a fresh context that includes the parent's obj (CLIContext)
                     with click_group.make_context(
                         "powerloom-snapshotter", [cmd_name] + args
@@ -580,11 +567,8 @@ def show_help(commands: dict):
     )
 
 
-def shell_command(ctx: typer.Context):
+def shell_command(ctx: typer.Context, app: typer.Typer):
     """Start an interactive shell session."""
-    # Import here to avoid circular imports
-    from snapshotter_cli.cli import app
-
     # Get the parent context which has the loaded config
     parent_ctx = ctx.parent if ctx.parent else ctx
     run_shell(app, parent_ctx)

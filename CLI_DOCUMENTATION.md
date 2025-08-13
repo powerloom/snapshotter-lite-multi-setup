@@ -9,10 +9,7 @@
   - [configure](#configure)
   - [deploy](#deploy)
   - [list](#list)
-  - [stop](#stop)
-  - [restart](#restart)
-  - [cleanup](#cleanup)
-  - [logs](#logs)
+  - [status](#status)
   - [diagnose](#diagnose)
   - [identity](#identity)
   - [shell](#shell)
@@ -37,10 +34,11 @@ Both commands are equivalent and can be used interchangeably.
 
 - 🚀 **Easy Configuration**: Set up credentials and settings for different chain/market combinations
 - 📦 **Multi-Instance Management**: Deploy and manage multiple snapshotter instances
-- 🔍 **Instance Monitoring**: View status, logs, and diagnostics for running instances
+- 🔍 **Instance Monitoring**: View status and diagnostics for running instances
 - 🐚 **Interactive Shell**: Fast command execution with history support
 - 🔐 **Secure Credential Storage**: Namespaced environment files for different configurations
 - 🏗️ **Identity Management**: Generate and manage signer identities
+- 📊 **Status Monitoring**: Check status of deployed instances
 
 ## Installation
 
@@ -113,7 +111,7 @@ powerloom-snapshotter-cli shell
 powerloom-snapshotter> configure
 powerloom-snapshotter> deploy
 powerloom-snapshotter> list
-powerloom-snapshotter> logs --follow
+powerloom-snapshotter> status
 ```
 
 **Note:** After installation with `uv sync`, commands are available through `uv run`. For direct terminal access without the `uv run` prefix, use `uv tool install`.
@@ -137,9 +135,9 @@ If you prefer to run individual commands:
    powerloom-snapshotter-cli list
    ```
 
-4. **View logs:**
+4. **Check status:**
    ```bash
-   powerloom-snapshotter-cli logs --env devnet --market uniswapv2
+   powerloom-snapshotter-cli status --env devnet --market uniswapv2
    ```
 
 ## Interactive Shell Mode (Recommended)
@@ -184,12 +182,11 @@ powerloom-snapshotter> deploy --env devnet --market uniswapv2
 powerloom-snapshotter> list
 [Shows running instances...]
 
-powerloom-snapshotter> logs --env devnet --market uniswapv2 --follow
-[Real-time logs...]
-^C  # Press Ctrl+C to stop following logs
+powerloom-snapshotter> status --env devnet --market uniswapv2
+[Shows status of instances...]
 
-powerloom-snapshotter> stop --env devnet --market uniswapv2
-[Stops instances...]
+powerloom-snapshotter> diagnose --clean
+[Runs diagnostics and cleanup...]
 
 powerloom-snapshotter> exit
 Goodbye!
@@ -270,113 +267,49 @@ powerloom-snapshotter-cli deploy --env devnet --market uniswapv2 --market aavev3
 
 ### list
 
-List all active snapshotter instances.
+Display available Powerloom chains and their data markets.
 
 ```bash
 powerloom-snapshotter-cli list
 ```
 
 **Output includes:**
-- Instance name
-- Status (Active/Inactive)
+- Available Powerloom chains (with Chain ID and RPC)
+- Data markets for each chain
+- Market contracts and configurations
+- Source chains for each market
+
+### status
+
+Show status of deployed snapshotter instances (screen sessions and Docker containers).
+
+```bash
+powerloom-snapshotter-cli status [OPTIONS]
+```
+
+**Options:**
+- `--env, -e`: Filter by Powerloom chain environment name
+- `--market, -m`: Filter by data market name
+
+**Examples:**
+```bash
+# Check status of all instances
+powerloom-snapshotter-cli status
+
+# Check status for specific chain/market
+powerloom-snapshotter-cli status --env devnet --market uniswapv2
+```
+
+**Output includes:**
+- Powerloom chain and data market
+- Slot ID
+- Screen session name and PID
+- Screen status
 - Docker container status
-- Process details
-
-### stop
-
-Stop snapshotter instances.
-
-```bash
-powerloom-snapshotter-cli stop [OPTIONS]
-```
-
-**Options:**
-- `--env, -e`: Filter by Powerloom chain
-- `--market, -m`: Filter by data market
-- `--slot, -s`: Stop specific slot
-
-**Examples:**
-```bash
-# Stop all instances
-powerloom-snapshotter-cli stop
-
-# Stop all instances for a chain
-powerloom-snapshotter-cli stop --env devnet
-
-# Stop specific market instances
-powerloom-snapshotter-cli stop --env devnet --market uniswapv2
-
-# Stop specific slot
-powerloom-snapshotter-cli stop --env devnet --market uniswapv2 --slot 123
-```
-
-### restart
-
-Restart snapshotter instances (stop and start).
-
-```bash
-powerloom-snapshotter-cli restart [OPTIONS]
-```
-
-**Options:**
-- `--env, -e`: Filter by Powerloom chain
-- `--market, -m`: Filter by data market
-- `--slot, -s`: Restart specific slot
-
-### cleanup
-
-Remove stopped instances and clean up resources.
-
-```bash
-powerloom-snapshotter-cli cleanup [OPTIONS]
-```
-
-**Options:**
-- `--env, -e`: Filter by Powerloom chain
-- `--market, -m`: Filter by data market
-- `--slot, -s`: Cleanup specific slot
-- `--force, -f`: Skip confirmation prompts
-
-**Example:**
-```bash
-# Cleanup with confirmation
-powerloom-snapshotter-cli cleanup --env devnet --market uniswapv2
-
-# Force cleanup without confirmation
-powerloom-snapshotter-cli cleanup --force
-```
-
-### logs
-
-View logs for snapshotter instances.
-
-```bash
-powerloom-snapshotter-cli logs [OPTIONS]
-```
-
-**Options:**
-- `--env, -e`: Powerloom chain name
-- `--market, -m`: Data market name
-- `--slot, -s`: Specific slot ID
-- `--lines, -n`: Number of lines to show (default: 50)
-- `--follow, -f`: Follow log output
-- `--container, -c`: Container to show logs for (core-api or snapshotter)
-
-**Examples:**
-```bash
-# View recent logs
-powerloom-snapshotter-cli logs --env devnet --market uniswapv2
-
-# Follow logs in real-time
-powerloom-snapshotter-cli logs --env devnet --market uniswapv2 --follow
-
-# View specific container logs
-powerloom-snapshotter-cli logs --env devnet --market uniswapv2 --container core-api
-```
 
 ### diagnose
 
-Run diagnostics on the system and check requirements.
+Run diagnostics on the system and optionally clean up existing deployments.
 
 ```bash
 powerloom-snapshotter-cli diagnose [OPTIONS]
@@ -384,7 +317,7 @@ powerloom-snapshotter-cli diagnose [OPTIONS]
 
 **Options:**
 - `--clean, -c`: Clean up existing deployments
-- `--force, -f`: Force cleanup without confirmation
+- `--force, -f`: Force cleanup without confirmation (use with --clean)
 
 **Diagnostics include:**
 - Python version check
@@ -492,8 +425,8 @@ screen -ls
 # Quit specific session
 screen -X -S session_name quit
 
-# Or use cleanup command
-powerloom-snapshotter-cli cleanup --force
+# Or use diagnose command with cleanup
+powerloom-snapshotter-cli diagnose --clean --force
 ```
 
 #### 5. "ABI files not found"

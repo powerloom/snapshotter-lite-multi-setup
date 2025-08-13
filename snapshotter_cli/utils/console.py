@@ -3,6 +3,8 @@ Console utilities for consistent terminal handling across the CLI.
 Fixes newline issues in PyInstaller Linux builds.
 """
 
+import getpass
+import re
 import sys
 from typing import Optional
 
@@ -51,8 +53,6 @@ class Prompt(RichPrompt):
         # For PyInstaller builds on Linux, use a simpler approach
         if getattr(sys, "frozen", False) and sys.platform.startswith("linux"):
             # Strip Rich markup tags for plain text display
-            import re
-
             plain_prompt = re.sub(r"\[.*?\]", "", prompt)
 
             # Print prompt with default value on the same line
@@ -62,8 +62,6 @@ class Prompt(RichPrompt):
 
             # Use standard input() to avoid Rich's terminal handling issues
             if password:
-                import getpass
-
                 print(prompt_text, end="", flush=True)
                 value = getpass.getpass(" ")
             else:

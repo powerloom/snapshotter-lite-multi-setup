@@ -3,13 +3,13 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
+from web3 import Web3
+
 from snapshotter_cli.utils.console import console
 
 # Handle PyInstaller bundled files
 if getattr(sys, "frozen", False):
     # Running in a PyInstaller bundle
-    import sys
-
     base_path = Path(sys._MEIPASS)
     ABI_DIR = base_path / "snapshotter_cli" / "utils" / "abi"
     # Also check if files are in the root of _MEIPASS
@@ -46,8 +46,6 @@ def fetch_owned_slots(
         return None
 
     try:
-        from web3 import Web3
-
         w3 = Web3(Web3.HTTPProvider(rpc_url))
         if not w3.is_connected():
             console.print(
