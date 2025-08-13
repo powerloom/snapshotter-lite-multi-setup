@@ -26,6 +26,9 @@ MONITOR_SERVICE_REPO_URL = "git@github.com:powerloom/submissions-monitor-alerts.
 MONITOR_SERVICE_DIR = Path("submissions-monitor-alerts")
 MONITOR_ENV_FILENAME_TEMPLATE = ".env.monitor.{}.{}"  # e.g. .env.monitor.devnet.uniswapv2
 
+# Create monitor app with subcommands
+monitor_app = typer.Typer(help="Monitor slot submission services")
+
 
 def cleanup_monitor_containers(chain_name: str):
     """Clean up any running monitor containers for the given chain."""
@@ -398,14 +401,176 @@ def deploy_monitor_service(
     console.print(f"\n📋 Service Management Commands:", style="bold blue")
     console.print(f"  • View screen session: screen -r pl_monitor_{norm_pl_chain_name}", style="dim")
     console.print(f"  • List screen sessions: screen -ls", style="dim")
-    console.print(f"  • Stop service: screen -X -S pl_monitor_{norm_pl_chain_name} quit", style="dim")
     console.print(f"  • View logs: cd {monitor_instance_dir} && docker-compose logs -f", style="dim")
     console.print(f"  • Check status: cd {monitor_instance_dir} && docker-compose ps", style="dim")
     
     return True
 
 
-def monitor_command(
+@monitor_app.command("stop")
+def monitor_stop_command():
+    """Stop all running monitor services."""
+    stop_monitor_services()
+
+
+@monitor_app.command("clean")
+def monitor_clean_command():
+    """Remove all monitor configurations with confirmation."""
+    clean_monitor_configurations()
+
+
+def list_monitor_screen_sessions() -> list[dict[str, str]]:
+    """Lists running screen sessions matching the monitor naming convention."""
+    sessions = []
+    try:
+        process = subprocess.run(
+            ["screen", "-ls"], capture_output=True, text=True, check=False, timeout=5
+        )
+        if (
+            process.returncode > 1
+            and "No Sockets found" not in process.stdout
+            and "No Sockets found" not in process.stderr
+        ):
+            console.print(
+                f"[dim]Error running 'screen -ls'. RC: {process.returncode}, Stderr: {process.stderr.strip()}[/dim]",
+                style="yellow",
+            )
+            return sessions
+
+        for line in process.stdout.splitlines():
+            line = line.strip()
+            parts = line.split("\t")
+            if not parts or len(parts) < 2:  # Need at least name and status part
+                continue
+
+            pid_session_part = parts[0]
+            status_part = parts[1]  # e.g., (01/23/2024 11:29:09 AM)   (Detached)
+
+            if "." in pid_session_part:
+                pid_str, session_name = pid_session_part.split(".", 1)
+                # Check if it matches our monitor naming convention: pl_monitor_{chain}
+                if session_name.startswith("pl_monitor_"):
+                    sessions.append(
+                        {
+                            "pid": pid_str,
+                            "name": session_name,
+                            "status_str": status_part.strip(),
+                        }
+                    )
+        return sessions
+    except FileNotFoundError:
+        console.print(
+            "❌ 'screen' command not found. Is screen installed?", style="red"
+        )
+        return sessions
+    except subprocess.TimeoutExpired:
+        console.print("⏰ Timeout while running 'screen -ls'.", style="yellow")
+        return sessions
+    except Exception as e:
+        console.print(
+            f"⚠️ Unexpected error while listing monitor screen sessions: {e}", style="yellow"
+        )
+        return sessions
+
+
+def stop_monitor_services():
+    """Stop all running monitor services."""
+    # Find all monitor screen sessions
+    monitor_sessions = list_monitor_screen_sessions()
+    
+    if not monitor_sessions:
+        console.print("ℹ️ No running monitor services found.", style="yellow")
+        return True
+    
+    console.print(f"📋 Found {len(monitor_sessions)} running monitor service(s):", style="blue")
+    for session in monitor_sessions:
+        console.print(f"  • {session['name']} (PID: {session['pid']}) - {session['status_str']}", style="dim")
+    
+    # Prompt for confirmation (following diagnose.py pattern)
+    if typer.confirm("Would you like to stop all monitor services?"):
+        console.print("Stopping monitor services...", style="yellow")
+        
+        # Stop each session
+        for session in monitor_sessions:
+            try:
+                session_name = session["name"]
+                session_pid = session["pid"]
+                
+                # Stop the screen session
+                subprocess.run(
+                    ["screen", "-X", "-S", session_name, "quit"], 
+                    capture_output=True, 
+                    check=True
+                )
+                console.print(
+                    f"✅ Stopped monitor service: {session_name} ({session_pid})",
+                    style="green",
+                )
+            except subprocess.CalledProcessError as e:
+                console.print(
+                    f"⚠️ Failed to stop monitor service {session_name} ({session_pid}): {e}",
+                    style="red",
+                )
+                continue
+        
+        console.print("Monitor service cleanup completed", style="green")
+    else:
+        console.print("❌ Operation cancelled.", style="yellow")
+        return False
+    
+    return True
+
+
+def clean_monitor_configurations():
+    """Remove all monitor configurations with confirmation."""
+    # Find all monitor directories
+    monitor_base_dir = Path(os.getcwd()) / MONITOR_SERVICE_DIR
+    if not monitor_base_dir.exists():
+        console.print("ℹ️ No monitor configurations found.", style="yellow")
+        return True
+    
+    monitor_dirs = []
+    for item in monitor_base_dir.iterdir():
+        if item.is_dir():
+            monitor_dirs.append(item)
+    
+    if not monitor_dirs:
+        console.print("ℹ️ No monitor configurations found.", style="yellow")
+        return True
+    
+    console.print(f"📋 Found {len(monitor_dirs)} monitor configuration(s):", style="blue")
+    for monitor_dir in monitor_dirs:
+        console.print(f"  • {monitor_dir.name}", style="dim")
+    
+    # Prompt for confirmation (following diagnose.py pattern)
+    if typer.confirm("Would you like to remove all monitor configurations? This will delete all monitor data."):
+        console.print("Removing monitor configurations...", style="yellow")
+        
+        # Remove each directory
+        for monitor_dir in monitor_dirs:
+            try:
+                shutil.rmtree(monitor_dir)
+                console.print(
+                    f"✅ Removed monitor configuration: {monitor_dir.name}",
+                    style="green",
+                )
+            except Exception as e:
+                console.print(
+                    f"⚠️ Failed to remove monitor configuration {monitor_dir.name}: {e}",
+                    style="red",
+                )
+                continue
+        
+        console.print("Monitor configuration cleanup completed", style="green")
+    else:
+        console.print("❌ Operation cancelled.", style="yellow")
+        return False
+    
+    return True
+
+
+@monitor_app.command("deploy")
+def monitor_deploy_command(
     ctx: typer.Context,
     environment: Optional[str] = typer.Option(
         None,

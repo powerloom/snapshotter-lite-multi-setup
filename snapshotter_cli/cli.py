@@ -17,7 +17,7 @@ from . import __version__, get_version_string
 from .commands.configure import configure_command
 from .commands.diagnose import diagnose_command
 from .commands.identity import identity_app
-from .commands.monitor import monitor_command
+from .commands.monitor import monitor_app
 from .commands.shell import shell_command
 from .utils.config_helpers import get_credential, get_source_chain_rpc_url
 from .utils.deployment import (
@@ -885,7 +885,7 @@ def deploy(
 app.command("configure")(configure_command)
 
 
-app.command("monitor")(monitor_command)
+app.add_typer(monitor_app, name="monitor")
 
 
 @app.command()
