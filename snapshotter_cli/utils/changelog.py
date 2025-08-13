@@ -59,6 +59,8 @@ def format_changelog_content(content: str) -> str:
     Returns:
         Formatted content string for Rich console display
     """
+    import re
+
     formatted_lines = []
     lines = content.split("\n")
 
@@ -95,16 +97,27 @@ def format_changelog_content(content: str) -> str:
             else:
                 formatted_lines.append(line)
         elif line.startswith("- "):
-            # Bullet points
-            formatted_lines.append(f"  • {line[2:]}")
+            # Bullet points - handle inline bold text
+            bullet_content = line[2:]
+            # Replace **text** with [bold]text[/bold]
+            bullet_content = re.sub(
+                r"\*\*([^*]+)\*\*", r"[bold]\1[/bold]", bullet_content
+            )
+            formatted_lines.append(f"  • {bullet_content}")
         elif line.startswith("  - "):
-            # Sub-bullet points
-            formatted_lines.append(f"    ◦ {line[4:]}")
+            # Sub-bullet points - handle inline bold text
+            sub_bullet_content = line[4:]
+            sub_bullet_content = re.sub(
+                r"\*\*([^*]+)\*\*", r"[bold]\1[/bold]", sub_bullet_content
+            )
+            formatted_lines.append(f"    ◦ {sub_bullet_content}")
         elif line.startswith("**") and line.endswith("**") and len(line) > 4:
-            # Bold text
+            # Bold text (entire line)
             formatted_lines.append(f"[bold]{line[2:-2]}[/bold]")
         elif line.strip():
-            formatted_lines.append(line)
+            # Regular lines - also handle inline bold text
+            formatted_line = re.sub(r"\*\*([^*]+)\*\*", r"[bold]\1[/bold]", line)
+            formatted_lines.append(formatted_line)
         else:
             formatted_lines.append("")
 
@@ -178,6 +191,8 @@ def get_latest_changes() -> Optional[str]:
     Returns:
         Formatted string of latest changes for shell startup display, or None if not found.
     """
+    import re
+
     try:
         changelog_path = find_changelog_path()
 
@@ -243,8 +258,12 @@ def get_latest_changes() -> Optional[str]:
                     formatted_line += "[/bold yellow]"
                     changes.append(formatted_line)
                 elif line.startswith("- "):
-                    # Format bullet points
-                    changes.append(f"  • {line[2:]}")
+                    # Format bullet points and handle inline bold text
+                    bullet_content = line[2:]
+                    bullet_content = re.sub(
+                        r"\*\*([^*]+)\*\*", r"[bold]\1[/bold]", bullet_content
+                    )
+                    changes.append(f"  • {bullet_content}")
                 elif line.strip() and not line.startswith("#"):
                     changes.append(line)
             elif in_latest_release and line.strip():
@@ -254,8 +273,12 @@ def get_latest_changes() -> Optional[str]:
                     formatted_line += "[/bold yellow]"
                     changes.append(formatted_line)
                 elif line.startswith("- "):
-                    # Format bullet points
-                    changes.append(f"  • {line[2:]}")
+                    # Format bullet points and handle inline bold text
+                    bullet_content = line[2:]
+                    bullet_content = re.sub(
+                        r"\*\*([^*]+)\*\*", r"[bold]\1[/bold]", bullet_content
+                    )
+                    changes.append(f"  • {bullet_content}")
                 elif line.strip() and not line.startswith("#"):
                     changes.append(line)
 
