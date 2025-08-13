@@ -47,8 +47,8 @@ powerloom-snapshotter-cli deploy
 # Check status of running instances
 powerloom-snapshotter-cli status
 
-# View logs
-powerloom-snapshotter-cli logs --follow
+# View detailed status
+powerloom-snapshotter-cli status --env mainnet --market uniswapv2
 ```
 
 ## Available Commands
@@ -56,9 +56,7 @@ powerloom-snapshotter-cli logs --follow
 - `configure` - Set up chain and market-specific credentials
 - `deploy` - Deploy a new snapshotter instance
 - `status` - View status of deployed instances
-- `logs` - Display snapshotter logs
-- `stop` - Stop running instances
-- `cleanup` - Remove stopped instances
+- `list` - Display available chains and data markets
 - `diagnose` - Run system diagnostics
 - `identity` - Manage multiple configurations
 - `shell` - Start interactive mode
