@@ -905,12 +905,12 @@ def status(
     if environment:
         console.print(
             f"🔍 Filtering for environment: [bold cyan]{environment}[/bold cyan]",
-            style="info",
+            style="dim",
         )
     if data_market:
         console.print(
             f"🔍 Filtering for data market: [bold cyan]{data_market}[/bold cyan]",
-            style="info",
+            style="dim",
         )
 
     all_screen_sessions = list_snapshotter_screen_sessions()
