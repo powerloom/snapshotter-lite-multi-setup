@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Dict, Optional
 
+import psutil
 import typer
 from dotenv import dotenv_values
 from rich.panel import Panel
@@ -235,8 +236,6 @@ def configure_command(
         )
 
     # Calculate recommended max stream pool size based on CPU count
-    import psutil
-
     cpus = psutil.cpu_count(logical=True)
     if cpus >= 2 and cpus < 4:
         recommended_max_stream_pool_size = 40

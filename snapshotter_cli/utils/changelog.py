@@ -1,8 +1,13 @@
 """Changelog utilities for displaying and formatting CHANGELOG.md content."""
 
+import importlib.resources as resources
+import os
+import re
 import sys
 from pathlib import Path
 from typing import Optional
+
+from rich.console import Console
 
 from snapshotter_cli.utils.console import console
 
@@ -23,8 +28,6 @@ def find_changelog_path() -> Optional[Path]:
     else:
         # Check pip package installation location
         try:
-            import importlib.resources as resources
-
             # For Python 3.9+
             if hasattr(resources, "files"):
                 package_files = resources.files("snapshotter_cli")
@@ -59,8 +62,6 @@ def format_changelog_content(content: str) -> str:
     Returns:
         Formatted content string for Rich console display
     """
-    import re
-
     formatted_lines = []
     lines = content.split("\n")
 
@@ -130,10 +131,6 @@ def display_changelog():
     This function finds the CHANGELOG.md file, formats it, and displays it
     using Rich's pager for scrollable content.
     """
-    import os
-
-    from rich.console import Console
-
     try:
         # Check if we're in a PyInstaller bundle
         is_frozen = getattr(sys, "frozen", False)
@@ -191,8 +188,6 @@ def get_latest_changes() -> Optional[str]:
     Returns:
         Formatted string of latest changes for shell startup display, or None if not found.
     """
-    import re
-
     try:
         changelog_path = find_changelog_path()
 
