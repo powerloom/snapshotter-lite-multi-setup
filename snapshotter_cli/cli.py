@@ -697,7 +697,14 @@ def deploy(
             "https://github.com/PowerLoom/snapshotter-lite-v2.git"
         )
         # Clone with the specified branch
-        clone_command = ["git", "clone", "--branch", lite_node_branch, snapshotter_lite_repo_url, "."]
+        clone_command = [
+            "git",
+            "clone",
+            "--branch",
+            lite_node_branch,
+            snapshotter_lite_repo_url,
+            ".",
+        ]
         if not run_git_command(
             clone_command,
             cwd=base_snapshotter_clone_path,
@@ -712,7 +719,8 @@ def deploy(
                 shutil.rmtree(base_snapshotter_clone_path)
             raise typer.Exit(1)
         console.print(
-            f"  ✅ Base snapshotter-lite-v2 cloned successfully from branch: [bold cyan]{lite_node_branch}[/bold cyan].", style="green"
+            f"  ✅ Base snapshotter-lite-v2 cloned successfully from branch: [bold cyan]{lite_node_branch}[/bold cyan].",
+            style="green",
         )
 
         successful_deployments = 0
