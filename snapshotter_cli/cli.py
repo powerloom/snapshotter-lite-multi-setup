@@ -650,6 +650,20 @@ def deploy(
             console.print("🤷 No data markets selected for deployment.", style="yellow")
             raise typer.Exit(0)
 
+        # Get LITE_NODE_BRANCH from namespaced env content or use default
+        lite_node_branch = "main"  # default branch
+        if namespaced_env_content and "LITE_NODE_BRANCH" in namespaced_env_content:
+            lite_node_branch = namespaced_env_content["LITE_NODE_BRANCH"]
+            console.print(
+                f"📌 Using LITE_NODE_BRANCH from configuration: [bold cyan]{lite_node_branch}[/bold cyan]",
+                style="dim",
+            )
+        else:
+            console.print(
+                f"📌 No LITE_NODE_BRANCH found in configuration, using default: [bold cyan]{lite_node_branch}[/bold cyan]",
+                style="dim",
+            )
+
         console.print(
             f"🛠️ Preparing base snapshotter-lite-v2 clone at {base_snapshotter_clone_path}...",
             style="blue",
@@ -682,13 +696,22 @@ def deploy(
         snapshotter_lite_repo_url = (
             "https://github.com/PowerLoom/snapshotter-lite-v2.git"
         )
+        # Clone with the specified branch
+        clone_command = [
+            "git",
+            "clone",
+            "--branch",
+            lite_node_branch,
+            snapshotter_lite_repo_url,
+            ".",
+        ]
         if not run_git_command(
-            ["git", "clone", snapshotter_lite_repo_url, "."],
+            clone_command,
             cwd=base_snapshotter_clone_path,
-            desc="Cloning base snapshotter-lite-v2 repository from {snapshotter_lite_repo_url}",
+            desc=f"Cloning base snapshotter-lite-v2 repository from {{snapshotter_lite_repo_url}} (branch: {lite_node_branch})",
         ):
             console.print(
-                f"❌ Failed to clone base snapshotter-lite-v2 repository from {snapshotter_lite_repo_url}.",
+                f"❌ Failed to clone base snapshotter-lite-v2 repository from {snapshotter_lite_repo_url} (branch: {lite_node_branch}).",
                 style="bold red",
             )
             # Cleanup already created directory before exiting
@@ -696,7 +719,8 @@ def deploy(
                 shutil.rmtree(base_snapshotter_clone_path)
             raise typer.Exit(1)
         console.print(
-            f"  ✅ Base snapshotter-lite-v2 cloned successfully.", style="green"
+            f"  ✅ Base snapshotter-lite-v2 cloned successfully from branch: [bold cyan]{lite_node_branch}[/bold cyan].",
+            style="green",
         )
 
         successful_deployments = 0
