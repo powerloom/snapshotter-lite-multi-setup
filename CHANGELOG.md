@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **LITE_NODE_BRANCH configuration (#79)** - CLI now properly reads and uses LITE_NODE_BRANCH from environment configuration when cloning snapshotter-lite-v2
 - **Configuration value preservation (#76)** - Technical parameters now properly preserve existing values when updating configuration
 
 ### Changed
