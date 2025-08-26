@@ -66,6 +66,7 @@ def env_file_template(
     data_market_in_request: str = "false",
     telegram_reporting_url: str = "",
     telegram_chat_id: str = "",
+    telegram_message_thread_id: str = "",
     powerloom_chain: str = POWERLOOM_CHAIN,
     source_chain: str = SOURCE_CHAIN,
     local_collector_port: int = 50051,
@@ -102,6 +103,7 @@ DATA_MARKET_IN_REQUEST={data_market_in_request}
 LOCAL_COLLECTOR_IMAGE_TAG={local_collector_image_tag}
 TELEGRAM_REPORTING_URL={telegram_reporting_url}
 TELEGRAM_CHAT_ID={telegram_chat_id}
+TELEGRAM_MESSAGE_THREAD_ID={telegram_message_thread_id}
 CONNECTION_REFRESH_INTERVAL_SEC={connection_refresh_interval_sec}
 TELEGRAM_NOTIFICATION_COOLDOWN={telegram_notification_cooldown}
 """
@@ -121,6 +123,7 @@ def generate_env_file_contents(data_market_namespace: str, **kwargs) -> str:
         snapshotter_compute_repo=kwargs["snapshotter_compute_repo"],
         snapshotter_compute_repo_branch=kwargs["snapshotter_compute_repo_branch"],
         telegram_chat_id=kwargs["telegram_chat_id"],
+        telegram_message_thread_id=kwargs.get("telegram_message_thread_id", ""),
         telegram_reporting_url=kwargs["telegram_reporting_url"],
         max_stream_pool_size=kwargs["max_stream_pool_size"],
         stream_pool_health_check_interval=kwargs["stream_pool_health_check_interval"],
@@ -247,6 +250,7 @@ def _deploy_single_node_impl(
             snapshotter_config_repo=protocol_state["SNAPSHOTTER_CONFIG_REPO"],
             snapshotter_compute_repo=protocol_state["SNAPSHOTTER_COMPUTE_REPO"],
             telegram_chat_id=kwargs["telegram_chat_id"],
+            telegram_message_thread_id=kwargs.get("telegram_message_thread_id", ""),
             telegram_reporting_url=kwargs["telegram_reporting_url"],
             max_stream_pool_size=kwargs["max_stream_pool_size"],
             stream_pool_health_check_interval=kwargs[
@@ -954,6 +958,7 @@ def main(
         signer_pkey=os.getenv("SIGNER_ACCOUNT_PRIVATE_KEY"),
         powerloom_rpc_url=os.getenv("POWERLOOM_RPC_URL"),
         telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
+        telegram_message_thread_id=os.getenv("TELEGRAM_MESSAGE_THREAD_ID", ""),
         telegram_reporting_url=os.getenv(
             "TELEGRAM_REPORTING_URL", "https://tg-testing.powerloom.io"
         ),

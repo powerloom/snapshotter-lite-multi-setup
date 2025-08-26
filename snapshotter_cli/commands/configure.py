@@ -68,6 +68,11 @@ def configure_command(
     telegram_reporting_url: Optional[str] = typer.Option(
         "", "--telegram-url", "-u", help="Telegram reporting URL"
     ),
+    telegram_thread_id: Optional[str] = typer.Option(
+        None,
+        "--telegram-thread",
+        help="Telegram message thread ID for organizing notifications",
+    ),
     max_stream_pool_size: Optional[int] = typer.Option(
         None,
         "--max-stream-pool-size",
@@ -278,8 +283,9 @@ def configure_command(
         or "https://tg-testing.powerloom.io/"
     )
 
-    # Prompt for Telegram notification cooldown only if chat ID is provided
+    # Prompt for Telegram notification cooldown and thread ID only if chat ID is provided
     final_telegram_cooldown = ""
+    final_telegram_thread = ""
     if final_telegram_chat:
         default_cooldown = existing_env_vars.get(
             "TELEGRAM_NOTIFICATION_COOLDOWN", "300"
@@ -287,6 +293,12 @@ def configure_command(
         final_telegram_cooldown = Prompt.ask(
             "👉 Enter Telegram notification cooldown in seconds (optional)",
             default=default_cooldown,
+        )
+
+        # Prompt for Telegram thread ID
+        final_telegram_thread = telegram_thread_id or Prompt.ask(
+            "👉 Enter Telegram message thread ID for organizing notifications (optional, leave empty for main chat)",
+            default=existing_env_vars.get("TELEGRAM_MESSAGE_THREAD_ID", ""),
         )
 
     # Don't prompt for max stream pool size - use existing or recommended value
@@ -325,6 +337,8 @@ def configure_command(
         env_contents.append(f"TELEGRAM_REPORTING_URL={final_telegram_url}")
     if final_telegram_cooldown:
         env_contents.append(f"TELEGRAM_NOTIFICATION_COOLDOWN={final_telegram_cooldown}")
+    if final_telegram_thread:
+        env_contents.append(f"TELEGRAM_MESSAGE_THREAD_ID={final_telegram_thread}")
     if final_max_stream_pool_size:
         env_contents.append(f"MAX_STREAM_POOL_SIZE={final_max_stream_pool_size}")
     if final_connection_refresh_interval:
