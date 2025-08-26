@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Improved
 - **Configuration UX** - Reduced from 9+ prompts to 6-7 essential ones, auto-setting technical parameters with smart defaults
+- **prep.sh installation** - Added `screen` package to prerequisites for apt-based systems
+- **install-uv.sh PATH guidance** - Added clear instructions for sourcing uv environment after installation
 
 ## [v0.1.3] - 2025-08-09
 

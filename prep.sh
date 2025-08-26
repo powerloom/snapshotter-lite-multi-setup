@@ -49,7 +49,7 @@ install_docker_apt() {
 
     # Install prerequisites
     echo -e "${GREEN}Installing prerequisites...${NC}"
-    if ! sudo apt-get install -y -qq ca-certificates curl gnupg lsb-release; then
+    if ! sudo apt-get install -y -qq ca-certificates curl gnupg lsb-release screen; then
         echo -e "${RED}Failed to install prerequisites. Please check your internet connection.${NC}"
         exit 1
     fi
