@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 # Build-time commit - will be set during build process
 __commit__ = None
