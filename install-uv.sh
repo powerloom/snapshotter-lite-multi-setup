@@ -65,3 +65,7 @@ echo -e "\nYou can now use any of these commands:"
 echo -e "  ${YELLOW}powerloom-snapshotter-cli${NC}"
 echo -e "  ${YELLOW}snapshotter${NC}"
 echo -e "\nTry: ${YELLOW}powerloom-snapshotter-cli --help${NC}"
+
+echo -e "\nTo add $HOME/.local/bin to your PATH, either restart your shell or run:"
+echo -e "  ${YELLOW}source $HOME/.local/bin/env (sh, bash, zsh)${NC}"
+echo -e "  ${YELLOW}source $HOME/.local/bin/env.fish (fish)${NC}"
