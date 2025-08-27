@@ -4,7 +4,12 @@ import subprocess
 import sys
 from pathlib import Path
 
-__version__ = "0.1.3"
+import toml
+
+# Read version from pyproject.toml
+with open("pyproject.toml", "r") as f:
+    pyproject = toml.load(f)
+    __version__ = pyproject["project"]["version"]
 
 # Build-time commit - will be set during build process
 __commit__ = None

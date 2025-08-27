@@ -5,7 +5,7 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.1.4] - 2025-08-27
 
 ### Added
 - **Telegram message thread ID support** - Added `TELEGRAM_MESSAGE_THREAD_ID` configuration option for organizing notifications into specific threads within Telegram chats
@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.4]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.4
 [v0.1.3]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.3
 [v0.1.2]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.2
 [v0.1.1]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.1
