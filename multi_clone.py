@@ -274,17 +274,60 @@ def _deploy_single_node_impl(
         screen_cmd = f"""cd {repo_path} && screen -dmS {repo_name} bash -c './build.sh {collector_profile_string} --skip-credential-update --data-market-contract-number {data_market_contract_number}'"""
         subprocess.run(screen_cmd, shell=True, check=True)
 
-        # Wait for the deployment to reach a stable state
-        # This ensures we don't release the semaphore too early
-        if idx == 0:
-            # First node needs more time for collector initialization
-            time.sleep(5)
-        else:
-            # Subsequent nodes need less time but still need to wait
-            # for Docker containers to actually start
-            time.sleep(3)
+        # Wait and verify container actually starts
+        container_started = False
+        max_wait_time = 60 if idx == 0 else 30  # First node needs more time
+        check_interval = 2
+        elapsed = 0
 
-        return (slot_id, "success", f"Node {slot_id} deployed successfully")
+        print(
+            f"⏳ Waiting for containers to start for slot {slot_id} (max {max_wait_time}s)..."
+        )
+
+        while elapsed < max_wait_time:
+            time.sleep(check_interval)
+            elapsed += check_interval
+
+            # Check if Docker containers are running for this slot
+            container_check = subprocess.run(
+                f"docker ps --format '{{{{.Names}}}}' | grep -E 'snapshotter-lite-v2-{slot_id}-{full_namespace}'",
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+
+            if container_check.stdout.strip():
+                # Containers found
+                container_count = len(container_check.stdout.strip().split("\n"))
+                print(f"✅ Found {container_count} container(s) for slot {slot_id}")
+                container_started = True
+                break
+
+            # Check if screen session is still alive (build might have failed)
+            screen_check = subprocess.run(
+                f"screen -ls | grep {repo_name}",
+                shell=True,
+                capture_output=True,
+                text=True,
+            )
+
+            if not screen_check.stdout.strip() and elapsed > 10:
+                # Screen session died after 10 seconds, likely a build failure
+                print(f"❌ Build process terminated early for slot {slot_id}")
+                break
+
+        if container_started:
+            return (
+                slot_id,
+                "success",
+                f"Node {slot_id} deployed successfully with containers running",
+            )
+        else:
+            return (
+                slot_id,
+                "failed",
+                f"Node {slot_id} failed to start containers within {max_wait_time}s",
+            )
 
     except Exception as e:
         return (slot_id, "error", f"Failed to deploy node {slot_id}: {str(e)}")
@@ -540,10 +583,10 @@ def run_snapshotter_lite_v2(
             "\n🔍 Verifying deployment status (waiting for containers to stabilize)..."
         )
         try:
-            # Get all deployed slot IDs from the tracker
-            all_deployed = deployment_tracker["completed"].union(
-                deployment_tracker["failed"]
-            )
+            # Get deployment results from the tracker
+            completed_slots = deployment_tracker["completed"].copy()
+            failed_slots = deployment_tracker["failed"].copy()
+            all_deployed = completed_slots.union(failed_slots)
 
             # Wait for containers to stabilize
             previous_count = 0
@@ -608,8 +651,27 @@ def run_snapshotter_lite_v2(
 
             print(f"\n📊 Deployment Summary:")
             print(
-                f"   ✅ Successfully running: {len(successful_deployments)} containers"
+                f"   ✅ Deployment attempts: {len(completed_slots)} successful, {len(failed_slots)} failed"
             )
+            print(f"   ✅ Actually running: {len(running_containers)} containers")
+
+            # Check for mismatches
+            expected_running = completed_slots - failed_slots
+            missing_containers = expected_running - running_containers
+            if missing_containers:
+                print(
+                    f"   ⚠️  Containers that failed to start: {len(missing_containers)}"
+                )
+                print(
+                    f"      Slots: {sorted(list(missing_containers))[:10]}{' ...' if len(missing_containers) > 10 else ''}"
+                )
+
+            if failed_slots:
+                print(f"   ❌ Failed deployments: {len(failed_slots)}")
+                print(
+                    f"      Slots: {sorted(list(failed_slots))[:10]}{' ...' if len(failed_slots) > 10 else ''}"
+                )
+
             if screens_without_containers:
                 print(
                     f"   ⚠️  Screen sessions without containers: {len(screens_without_containers)}"
