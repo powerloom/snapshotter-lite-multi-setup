@@ -550,13 +550,15 @@ def run_snapshotter_lite_v2(
             if active_count == 0 and total_tracked >= len(deploy_slots):
                 # All deployments have finished
                 print(
-                    f"✅ All deployments complete! ({completed_count} successful, {failed_count} failed)"
+                    f"✅ All deployments complete! ({completed_count} successful, {failed_count} failed/delayed)"
                 )
                 break
 
             # Show progress
             print(f"🔄 {active_count} deployments still active... ({elapsed}s elapsed)")
-            print(f"   ✅ Completed: {completed_count}, ❌ Failed: {failed_count}")
+            print(
+                f"   ✅ Completed: {completed_count}, ⏳ Failed/Delayed: {failed_count}"
+            )
 
             # Show which nodes are still deploying
             if elapsed % 20 == 0 and elapsed > 0 and active_count > 0:
