@@ -629,6 +629,34 @@ def run_snapshotter_lite_v2(
 
             print(f"   ✅ Container count stabilized at {current_count}")
 
+            # Follow-up check: Revalidate "failed" deployments to see if they started after timeout
+            initially_failed = failed_slots.copy()
+            delayed_starts = set()
+            actually_failed = set()
+
+            if initially_failed and running_containers:
+                print(
+                    f"\n🔄 Rechecking {len(initially_failed)} deployments marked as failed..."
+                )
+                for slot_id in initially_failed:
+                    if slot_id in running_containers:
+                        delayed_starts.add(slot_id)
+                    else:
+                        actually_failed.add(slot_id)
+
+                if delayed_starts:
+                    print(
+                        f"   ⏰ {len(delayed_starts)} deployments started after initial timeout"
+                    )
+                    # Update the tracker to reflect delayed but successful deployments
+                    with deployment_tracker["lock"]:
+                        for slot_id in delayed_starts:
+                            deployment_tracker["failed"].discard(slot_id)
+                            deployment_tracker["completed"].add(slot_id)
+                    # Update our local copies
+                    completed_slots = deployment_tracker["completed"].copy()
+                    failed_slots = deployment_tracker["failed"].copy()
+
             # Now check screen sessions
             result = subprocess.run(
                 f"screen -ls | grep powerloom",
@@ -650,9 +678,19 @@ def run_snapshotter_lite_v2(
             successful_deployments = running_containers.intersection(screen_sessions)
 
             print(f"\n📊 Deployment Summary:")
-            print(
-                f"   ✅ Deployment attempts: {len(completed_slots)} successful, {len(failed_slots)} failed"
-            )
+
+            # Show corrected counts after follow-up check
+            if delayed_starts:
+                print(
+                    f"   ✅ Deployment results (after recheck): {len(completed_slots)} successful, {len(failed_slots)} actually failed"
+                )
+                print(
+                    f"   ⏰ Delayed starts: {len(delayed_starts)} (started after 30s timeout)"
+                )
+            else:
+                print(
+                    f"   ✅ Deployment attempts: {len(completed_slots)} successful, {len(failed_slots)} failed"
+                )
             print(f"   ✅ Actually running: {len(running_containers)} containers")
 
             # Check for mismatches
@@ -666,8 +704,14 @@ def run_snapshotter_lite_v2(
                     f"      Slots: {sorted(list(missing_containers))[:10]}{' ...' if len(missing_containers) > 10 else ''}"
                 )
 
+            if delayed_starts:
+                print(f"   ⏰ Delayed deployments: {len(delayed_starts)}")
+                print(
+                    f"      Slots: {sorted(list(delayed_starts))[:10]}{' ...' if len(delayed_starts) > 10 else ''}"
+                )
+
             if failed_slots:
-                print(f"   ❌ Failed deployments: {len(failed_slots)}")
+                print(f"   ❌ Actually failed deployments: {len(failed_slots)}")
                 print(
                     f"      Slots: {sorted(list(failed_slots))[:10]}{' ...' if len(failed_slots) > 10 else ''}"
                 )
