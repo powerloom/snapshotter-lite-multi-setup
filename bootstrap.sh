@@ -15,7 +15,12 @@ create_env() {
         if [ -z "$value" ]; then
             value=$(grep "^$key=" env.example | cut -d'=' -f2-)
         fi
-        echo "$value"
+        # Don't return placeholder values like <telegram-chat-id>
+        if [[ "$value" =~ ^\<.*\>$ ]]; then
+            echo ""
+        else
+            echo "$value"
+        fi
     }
 
     # Function to prompt user with existing value
@@ -31,6 +36,9 @@ create_env() {
             # Updating existing values - show current value
             if [ "$key" == "SIGNER_ACCOUNT_PRIVATE_KEY" ]; then
                 echo "🫸 ▶︎ $prompt (press enter to keep current value: [hidden]): "
+            elif [ -z "$existing_value" ]; then
+                # No existing value - just show the prompt
+                echo "🫸 ▶︎ $prompt: "
             else
                 echo "🫸 ▶︎ $prompt (press enter to keep current value: $existing_value): "
             fi
@@ -41,12 +49,23 @@ create_env() {
     update_env_value() {
         local key=$1
         local value=$2
-        local existing_value=$(get_existing_value "$key")
 
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^$key=.*|$key=$value|g" .env
+        # Check if key exists in the file
+        if grep -q "^$key=" .env; then
+            # Key exists, update it
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^$key=.*|$key=$value|g" .env
+            else
+                sed -i "s|^$key=.*|$key=$value|g" .env
+            fi
         else
-            sed -i "s|^$key=.*|$key=$value|g" .env
+            # Key doesn't exist, append it with proper newline
+            # Check if file ends with newline
+            if [ -n "$(tail -c 1 .env 2>/dev/null)" ]; then
+                # File doesn't end with newline, add one
+                echo "" >> .env
+            fi
+            echo "$key=$value" >> .env
         fi
     }
 
@@ -71,20 +90,46 @@ create_env() {
     echo "" # add a newline after hidden input
     [ -n "$input" ] && update_env_value "SIGNER_ACCOUNT_PRIVATE_KEY" "$input"
 
-    # CONNECTION_REFRESH_INTERVAL_SEC
-    prompt_with_existing "Please enter the CONNECTION_REFRESH_INTERVAL_SEC" "CONNECTION_REFRESH_INTERVAL_SEC"
-    read input
-    [ -n "$input" ] && update_env_value "CONNECTION_REFRESH_INTERVAL_SEC" "$input"
-
     # TELEGRAM_CHAT_ID
     prompt_with_existing "Please enter the TELEGRAM_CHAT_ID (press enter to skip)" "TELEGRAM_CHAT_ID"
     read input
-    if [ -z "$input" ]; then
-        # If user pressed enter (skipped), explicitly set to blank
-        update_env_value "TELEGRAM_CHAT_ID" ""
-    elif [ -n "$input" ]; then
-        # If user entered a value, use it
+
+    # Get existing TELEGRAM_CHAT_ID value
+    existing_chat_id=$(get_existing_value "TELEGRAM_CHAT_ID")
+
+    # Determine final chat ID value
+    if [ -n "$input" ]; then
+        # User entered a new value
+        final_chat_id="$input"
         update_env_value "TELEGRAM_CHAT_ID" "$input"
+    elif [ -z "$input" ] && [ -n "$existing_chat_id" ]; then
+        # User pressed enter and there's an existing value - keep it
+        final_chat_id="$existing_chat_id"
+    else
+        # User pressed enter and there's no existing value - clear it
+        final_chat_id=""
+        update_env_value "TELEGRAM_CHAT_ID" ""
+        update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
+    fi
+
+    # Only ask for thread ID if we have a chat ID
+    if [ -n "$final_chat_id" ]; then
+        # TELEGRAM_MESSAGE_THREAD_ID (only ask if TELEGRAM_CHAT_ID is provided)
+        prompt_with_existing "Please enter the TELEGRAM_MESSAGE_THREAD_ID for organizing notifications (press enter to skip)" "TELEGRAM_MESSAGE_THREAD_ID"
+        read thread_input
+
+        # Get existing TELEGRAM_MESSAGE_THREAD_ID value
+        existing_thread_id=$(get_existing_value "TELEGRAM_MESSAGE_THREAD_ID")
+
+        # Handle thread ID input
+        if [ -n "$thread_input" ]; then
+            # User entered a new value
+            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" "$thread_input"
+        elif [ -z "$thread_input" ] && [ -z "$existing_thread_id" ]; then
+            # User pressed enter and there's no existing value - clear it
+            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
+        fi
+        # If user pressed enter and there's an existing value, keep it (do nothing)
     fi
 
     echo "🟢 .env file created successfully!"
