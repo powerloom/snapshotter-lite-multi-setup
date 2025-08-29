@@ -59,7 +59,12 @@ create_env() {
                 sed -i "s|^$key=.*|$key=$value|g" .env
             fi
         else
-            # Key doesn't exist, append it
+            # Key doesn't exist, append it with proper newline
+            # Check if file ends with newline
+            if [ -n "$(tail -c 1 .env 2>/dev/null)" ]; then
+                # File doesn't end with newline, add one
+                echo "" >> .env
+            fi
             echo "$key=$value" >> .env
         fi
     }
