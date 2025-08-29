@@ -77,9 +77,22 @@ create_env() {
     if [ -z "$input" ]; then
         # If user pressed enter (skipped), explicitly set to blank
         update_env_value "TELEGRAM_CHAT_ID" ""
+        # Also clear thread ID if chat ID is skipped
+        update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
     elif [ -n "$input" ]; then
         # If user entered a value, use it
         update_env_value "TELEGRAM_CHAT_ID" "$input"
+
+        # TELEGRAM_MESSAGE_THREAD_ID (only ask if TELEGRAM_CHAT_ID is provided)
+        prompt_with_existing "Please enter the TELEGRAM_MESSAGE_THREAD_ID for organizing notifications (press enter to skip)" "TELEGRAM_MESSAGE_THREAD_ID"
+        read thread_input
+        if [ -z "$thread_input" ]; then
+            # If user pressed enter (skipped), explicitly set to blank
+            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
+        else
+            # If user entered a value, use it
+            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" "$thread_input"
+        fi
     fi
 
     echo "🟢 .env file created successfully!"
