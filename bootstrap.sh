@@ -74,25 +74,43 @@ create_env() {
     # TELEGRAM_CHAT_ID
     prompt_with_existing "Please enter the TELEGRAM_CHAT_ID (press enter to skip)" "TELEGRAM_CHAT_ID"
     read input
-    if [ -z "$input" ]; then
-        # If user pressed enter (skipped), explicitly set to blank
-        update_env_value "TELEGRAM_CHAT_ID" ""
-        # Also clear thread ID if chat ID is skipped
-        update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
-    elif [ -n "$input" ]; then
-        # If user entered a value, use it
-        update_env_value "TELEGRAM_CHAT_ID" "$input"
 
+    # Get existing TELEGRAM_CHAT_ID value
+    existing_chat_id=$(get_existing_value "TELEGRAM_CHAT_ID")
+
+    # Determine final chat ID value
+    if [ -n "$input" ]; then
+        # User entered a new value
+        final_chat_id="$input"
+        update_env_value "TELEGRAM_CHAT_ID" "$input"
+    elif [ -z "$input" ] && [ -n "$existing_chat_id" ]; then
+        # User pressed enter and there's an existing value - keep it
+        final_chat_id="$existing_chat_id"
+    else
+        # User pressed enter and there's no existing value - clear it
+        final_chat_id=""
+        update_env_value "TELEGRAM_CHAT_ID" ""
+        update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
+    fi
+
+    # Only ask for thread ID if we have a chat ID
+    if [ -n "$final_chat_id" ]; then
         # TELEGRAM_MESSAGE_THREAD_ID (only ask if TELEGRAM_CHAT_ID is provided)
         prompt_with_existing "Please enter the TELEGRAM_MESSAGE_THREAD_ID for organizing notifications (press enter to skip)" "TELEGRAM_MESSAGE_THREAD_ID"
         read thread_input
-        if [ -z "$thread_input" ]; then
-            # If user pressed enter (skipped), explicitly set to blank
-            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
-        else
-            # If user entered a value, use it
+
+        # Get existing TELEGRAM_MESSAGE_THREAD_ID value
+        existing_thread_id=$(get_existing_value "TELEGRAM_MESSAGE_THREAD_ID")
+
+        # Handle thread ID input
+        if [ -n "$thread_input" ]; then
+            # User entered a new value
             update_env_value "TELEGRAM_MESSAGE_THREAD_ID" "$thread_input"
+        elif [ -z "$thread_input" ] && [ -z "$existing_thread_id" ]; then
+            # User pressed enter and there's no existing value - clear it
+            update_env_value "TELEGRAM_MESSAGE_THREAD_ID" ""
         fi
+        # If user pressed enter and there's an existing value, keep it (do nothing)
     fi
 
     echo "🟢 .env file created successfully!"
