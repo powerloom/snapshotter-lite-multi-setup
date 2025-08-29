@@ -71,11 +71,6 @@ create_env() {
     echo "" # add a newline after hidden input
     [ -n "$input" ] && update_env_value "SIGNER_ACCOUNT_PRIVATE_KEY" "$input"
 
-    # CONNECTION_REFRESH_INTERVAL_SEC
-    prompt_with_existing "Please enter the CONNECTION_REFRESH_INTERVAL_SEC" "CONNECTION_REFRESH_INTERVAL_SEC"
-    read input
-    [ -n "$input" ] && update_env_value "CONNECTION_REFRESH_INTERVAL_SEC" "$input"
-
     # TELEGRAM_CHAT_ID
     prompt_with_existing "Please enter the TELEGRAM_CHAT_ID (press enter to skip)" "TELEGRAM_CHAT_ID"
     read input
