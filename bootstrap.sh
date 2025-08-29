@@ -15,7 +15,12 @@ create_env() {
         if [ -z "$value" ]; then
             value=$(grep "^$key=" env.example | cut -d'=' -f2-)
         fi
-        echo "$value"
+        # Don't return placeholder values like <telegram-chat-id>
+        if [[ "$value" =~ ^\<.*\>$ ]]; then
+            echo ""
+        else
+            echo "$value"
+        fi
     }
 
     # Function to prompt user with existing value
