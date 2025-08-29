@@ -49,12 +49,18 @@ create_env() {
     update_env_value() {
         local key=$1
         local value=$2
-        local existing_value=$(get_existing_value "$key")
 
-        if [[ "$OSTYPE" == "darwin"* ]]; then
-            sed -i '' "s|^$key=.*|$key=$value|g" .env
+        # Check if key exists in the file
+        if grep -q "^$key=" .env; then
+            # Key exists, update it
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' "s|^$key=.*|$key=$value|g" .env
+            else
+                sed -i "s|^$key=.*|$key=$value|g" .env
+            fi
         else
-            sed -i "s|^$key=.*|$key=$value|g" .env
+            # Key doesn't exist, append it
+            echo "$key=$value" >> .env
         fi
     }
 
