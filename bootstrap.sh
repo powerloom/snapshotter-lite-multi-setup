@@ -31,6 +31,9 @@ create_env() {
             # Updating existing values - show current value
             if [ "$key" == "SIGNER_ACCOUNT_PRIVATE_KEY" ]; then
                 echo "🫸 ▶︎ $prompt (press enter to keep current value: [hidden]): "
+            elif [ -z "$existing_value" ]; then
+                # No existing value - just show the prompt
+                echo "🫸 ▶︎ $prompt: "
             else
                 echo "🫸 ▶︎ $prompt (press enter to keep current value: $existing_value): "
             fi
