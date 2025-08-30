@@ -25,6 +25,7 @@ a = Analysis(
     datas=[
         (str(current_dir / 'snapshotter_cli/utils/abi/PowerloomNodes.json'), 'snapshotter_cli/utils/abi'),
         (str(current_dir / 'snapshotter_cli/utils/abi/ProtocolState.json'), 'snapshotter_cli/utils/abi'),
+        (str(current_dir / 'pyproject.toml'), '.'),  # Include pyproject.toml in the root of the bundle
         (str(current_dir / 'CHANGELOG.md'), '.'),  # Include CHANGELOG.md in the root of the bundle
     ] + py_ecc_datas,
     hiddenimports=[
