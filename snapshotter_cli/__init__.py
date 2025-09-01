@@ -7,7 +7,17 @@ from pathlib import Path
 import toml
 
 # Read version from pyproject.toml
-with open("pyproject.toml", "r") as f:
+# Handle PyInstaller bundle case
+if getattr(sys, "frozen", False):
+    # We're running in a PyInstaller bundle
+    # pyproject.toml is bundled in the root of _MEIPASS
+    base_path = Path(sys._MEIPASS)
+    pyproject_path = base_path / "pyproject.toml"
+else:
+    # Normal development mode
+    pyproject_path = Path("pyproject.toml")
+
+with open(pyproject_path, "r") as f:
     pyproject = toml.load(f)
     __version__ = pyproject["project"]["version"]
 
