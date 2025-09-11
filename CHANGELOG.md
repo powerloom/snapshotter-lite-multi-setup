@@ -5,6 +5,11 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- **Configure overwrite prompt (#88)** - Fixed issue where pressing any key other than 'y' or 'n' would abort configuration. Now re-prompts for valid input instead of aborting
+
 ## [v0.1.5] - 2025-08-31
 
 ### Fixed
