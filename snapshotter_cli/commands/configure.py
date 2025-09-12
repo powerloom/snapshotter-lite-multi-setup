@@ -353,12 +353,25 @@ def configure_command(
     env_contents.append("LOCAL_COLLECTOR_IMAGE_TAG=latest")
 
     if env_file_path.exists():
-        overwrite = typer.confirm(
-            f"⚠️ {env_filename} already exists. Overwrite?", default=False
-        )
-        if not overwrite:
-            console.print("❌ Aborted.", style="yellow")
-            raise typer.Exit(1)
+        while True:
+            response = (
+                Prompt.ask(
+                    f"⚠️ {env_filename} already exists. Overwrite? [y/N]", default="n"
+                )
+                .lower()
+                .strip()
+            )
+
+            if response in ["y", "yes"]:
+                break  # Proceed with overwrite
+            elif response in ["n", "no", ""]:
+                console.print("❌ Aborted.", style="yellow")
+                raise typer.Exit(1)
+            else:
+                console.print(
+                    "❌ Invalid input. Please enter 'y' for yes or 'n' for no.",
+                    style="red",
+                )
 
     try:
         with open(env_file_path, "w") as f:
