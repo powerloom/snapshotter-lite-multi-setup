@@ -75,6 +75,7 @@ def env_file_template(
     local_collector_image_tag: str = "latest",
     telegram_notification_cooldown: int = 300,
     connection_refresh_interval_sec: int = 60,
+    override_defaults: str = "false",
 ) -> str:
     full_namespace = f"{powerloom_chain}-{namespace}-{source_chain}"
     docker_network_name = f"snapshotter-lite-v2-{full_namespace}"
@@ -106,6 +107,7 @@ TELEGRAM_CHAT_ID={telegram_chat_id}
 TELEGRAM_MESSAGE_THREAD_ID={telegram_message_thread_id}
 CONNECTION_REFRESH_INTERVAL_SEC={connection_refresh_interval_sec}
 TELEGRAM_NOTIFICATION_COOLDOWN={telegram_notification_cooldown}
+OVERRIDE_DEFAULTS={override_defaults}
 """
 
 
@@ -129,6 +131,7 @@ def generate_env_file_contents(data_market_namespace: str, **kwargs) -> str:
         stream_pool_health_check_interval=kwargs["stream_pool_health_check_interval"],
         local_collector_image_tag=kwargs["local_collector_image_tag"],
         connection_refresh_interval_sec=kwargs["connection_refresh_interval_sec"],
+        override_defaults=kwargs.get("override_defaults", "false"),
     )
 
 
@@ -259,6 +262,7 @@ def _deploy_single_node_impl(
             local_collector_image_tag=kwargs["local_collector_image_tag"],
             slot_id=slot_id,
             connection_refresh_interval_sec=kwargs["connection_refresh_interval_sec"],
+            override_defaults=kwargs.get("override_defaults", "false"),
         )
 
         env_file_path = os.path.join(repo_path, f".env-{full_namespace}")
@@ -1076,6 +1080,7 @@ def main(
         ),
         local_collector_image_tag=local_collector_image_tag,
         connection_refresh_interval_sec=connection_refresh_interval,
+        override_defaults=os.getenv("OVERRIDE_DEFAULTS", "false"),
         parallel_workers=parallel_workers,
         sequential=sequential,
     )
