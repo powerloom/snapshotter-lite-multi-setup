@@ -477,6 +477,24 @@ The multi setup comes bundled with a diagnostic and cleanup script.
 > [!NOTE]
 > The `-y` flag is recommended to be used as it will skip all the prompts and cleanup existing Powerloom containers and legacy Docker networks without asking for confirmation. If you want to run the script with prompts, you can run it without the `-y` flag.
 
+**Selective Cleanup (New):**
+
+You can now target specific deployments for cleanup:
+
+```bash
+# Clean up specific slot ID
+./diagnose.sh -y -s 5483
+
+# Clean up specific chain
+./diagnose.sh -y -c mainnet
+
+# Clean up specific market
+./diagnose.sh -y -m uniswapv2
+
+# Combine filters
+./diagnose.sh -y -s 1234 -c devnet -m aavev3
+```
+
 The following output may vary depending on whether you have run snapshotter node(s) before this setup or not.
 
 ```

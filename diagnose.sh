@@ -37,17 +37,69 @@ get_used_subnets() {
     done
 }
 
+# Function to apply filters to a list of names (case-insensitive)
+apply_filters() {
+    local input="$1"
+    local result="$input"
+
+    # Apply slot_id filter
+    if [ -n "$FILTER_SLOT_ID" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_SLOT_ID" || true)
+    fi
+
+    # Apply chain filter (case-insensitive)
+    if [ -n "$FILTER_CHAIN" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_CHAIN" || true)
+    fi
+
+    # Apply market filter (case-insensitive)
+    if [ -n "$FILTER_MARKET" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_MARKET" || true)
+    fi
+
+    echo "$result"
+}
+
 # Parse command line arguments
 AUTO_CLEANUP=false
-while getopts "y" opt; do
+FILTER_SLOT_ID=""
+FILTER_CHAIN=""
+FILTER_MARKET=""
+
+while getopts "ys:c:m:" opt; do
     case $opt in
         y) AUTO_CLEANUP=true ;;
-        *) echo "Usage: $0 [-y]" >&2
+        s) FILTER_SLOT_ID="$OPTARG" ;;
+        c) FILTER_CHAIN="$OPTARG" ;;
+        m) FILTER_MARKET="$OPTARG" ;;
+        *) echo "Usage: $0 [-y] [-s SLOT_ID] [-c CHAIN] [-m MARKET]" >&2
+           echo "  -y            Auto cleanup without prompts" >&2
+           echo "  -s SLOT_ID    Filter by specific slot ID" >&2
+           echo "  -c CHAIN      Filter by chain name (e.g., mainnet, devnet)" >&2
+           echo "  -m MARKET     Filter by market name (e.g., uniswapv2, aavev3)" >&2
            exit 1 ;;
     esac
 done
 
-echo "🔍 Starting Powerloom Node Diagnostics..."
+# Display filter information if any filters are active
+FILTER_MSG=""
+if [ -n "$FILTER_SLOT_ID" ]; then
+    FILTER_MSG="${FILTER_MSG}Slot ID: ${FILTER_SLOT_ID}, "
+fi
+if [ -n "$FILTER_CHAIN" ]; then
+    FILTER_MSG="${FILTER_MSG}Chain: ${FILTER_CHAIN}, "
+fi
+if [ -n "$FILTER_MARKET" ]; then
+    FILTER_MSG="${FILTER_MSG}Market: ${FILTER_MARKET}, "
+fi
+
+if [ -n "$FILTER_MSG" ]; then
+    # Remove trailing comma and space
+    FILTER_MSG="${FILTER_MSG%, }"
+    echo "🔍 Starting Powerloom Node Diagnostics (Filters: ${FILTER_MSG})..."
+else
+    echo "🔍 Starting Powerloom Node Diagnostics..."
+fi
 
 # Phase 1: System Checks
 echo -e "\n📦 Checking Docker installation..."
@@ -76,7 +128,8 @@ echo -e "${GREEN}✅ Docker Compose is available${NC}"
 
 # Check existing containers and networks
 echo -e "\n🔍 Checking existing Powerloom containers..."
-EXISTING_CONTAINERS=$(docker ps -a --filter "name=snapshotter-lite-v2" --filter "name=powerloom" --filter "name=local-collector" --filter "name=autoheal" --format "{{.Names}}")
+ALL_CONTAINERS=$(docker ps -a --filter "name=snapshotter-lite-v2" --filter "name=powerloom" --filter "name=local-collector" --filter "name=autoheal" --format "{{.Names}}")
+EXISTING_CONTAINERS=$(apply_filters "$ALL_CONTAINERS")
 if [ -n "$EXISTING_CONTAINERS" ]; then
     echo -e "${YELLOW}Found existing Powerloom containers:${NC}"
     echo "$EXISTING_CONTAINERS"
@@ -213,7 +266,8 @@ fi
 
 # Check for existing screen sessions
 echo -e "\n🖥️ Checking existing Powerloom screen sessions..."
-EXISTING_SCREENS=$(screen -ls | grep -E 'powerloom-(premainnet|testnet|mainnet)-v2|snapshotter|pl_.*_.*_[0-9]+' || true)
+ALL_SCREENS=$(screen -ls | grep -E 'powerloom-(premainnet|testnet|mainnet)-v2|snapshotter|pl_.*_.*_[0-9]+' || true)
+EXISTING_SCREENS=$(apply_filters "$ALL_SCREENS")
 if [ -n "$EXISTING_SCREENS" ]; then
     echo -e "${YELLOW}Found existing Powerloom screen sessions:${NC}"
     echo "$EXISTING_SCREENS"
