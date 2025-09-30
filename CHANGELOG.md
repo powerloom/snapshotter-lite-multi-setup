@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Selective cleanup filters (#89)** - Added `--slot-id`, `--chain`, and `--market` filter options to `diagnose` command for targeted cleanup of specific deployments instead of cleaning everything at once
+
 ### Fixed
 - **Configure overwrite prompt (#88)** - Fixed issue where pressing any key other than 'y' or 'n' would abort configuration. Now re-prompts for valid input instead of aborting
 - **OVERRIDE_DEFAULTS environment variable** - Fixed multi_clone.py not passing OVERRIDE_DEFAULTS from .env to lite v2 deployments
