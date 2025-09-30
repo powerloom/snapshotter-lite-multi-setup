@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Selective cleanup filters (#89)** - Added `--slot-id`, `--chain`, and `--market` filter options to `diagnose` command for targeted cleanup of specific deployments instead of cleaning everything at once
+- **Selective cleanup filters (#89)** - Added `--slot-id`, `--chain`, and `--market` filter options to `diagnose` command (CLI, shell mode, and legacy `diagnose.sh` script) for targeted cleanup of specific deployments instead of cleaning everything at once
 
 ### Fixed
 - **Configure overwrite prompt (#88)** - Fixed issue where pressing any key other than 'y' or 'n' would abort configuration. Now re-prompts for valid input instead of aborting
