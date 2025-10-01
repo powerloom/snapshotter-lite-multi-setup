@@ -904,7 +904,9 @@ def main(
         print("🟢 Non-interactive mode: Deploying all slots")
     else:
         deploy_all_slots = input("☑️ Do you want to deploy all slots? (y/n) ")
-        if deploy_all_slots.lower() == "n":
+        if deploy_all_slots.lower() == "y":
+            deploy_slots = slot_ids
+        else:
             start_slot = input("🫸 ▶︎ Enter the start slot ID: ")
             end_slot = input("🫸 ▶︎ Enter the end slot ID: ")
             start_slot = int(start_slot)
@@ -913,8 +915,6 @@ def main(
             start_slot_idx = slot_ids.index(start_slot)
             end_slot_idx = slot_ids.index(end_slot)
             deploy_slots = slot_ids[start_slot_idx : end_slot_idx + 1]
-        else:
-            deploy_slots = slot_ids
 
     print(f"🎰 Final list of slots to deploy: {deploy_slots}")
 
