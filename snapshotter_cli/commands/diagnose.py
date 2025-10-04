@@ -139,6 +139,55 @@ def get_powerloom_networks() -> List[str]:
         return []
 
 
+def get_network_containers(network_name: str) -> List[str]:
+    """Get Powerloom containers attached to a specific Docker network.
+    
+    Args:
+        network_name: Name of the Docker network to inspect
+        
+    Returns:
+        List of Powerloom container names attached to the network
+    """
+    try:
+        # Inspect the network and get all attached container names
+        result = run_with_sudo(
+            [
+                "docker",
+                "network",
+                "inspect",
+                network_name,
+                "--format",
+                "{{range .Containers}}{{.Name}} {{end}}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        
+        # Parse container names from output
+        all_containers = result.stdout.strip().split()
+        
+        # Filter to only include Powerloom-related containers
+        # This ensures we only count relevant containers when deciding to remove networks
+        powerloom_patterns = [
+            "snapshotter-lite-v2",
+            "powerloom-premainnet-",
+            "powerloom-testnet-",
+            "powerloom-mainnet-",
+            "local-collector",
+        ]
+        
+        powerloom_containers = [
+            container
+            for container in all_containers
+            if any(pattern in container for pattern in powerloom_patterns)
+        ]
+        
+        return powerloom_containers
+    except subprocess.CalledProcessError:
+        # If network doesn't exist or inspection fails, return empty list
+        return []
+
+
 def get_powerloom_screen_sessions(
     slot_id: str = None, chain: str = None, market: str = None
 ) -> List[Dict[str, str]]:
@@ -206,15 +255,8 @@ def cleanup_resources(
         chain: Optional chain name to filter by
         market: Optional data market name to filter by
     """
+    # Get resources to clean based on filters
     containers = get_powerloom_containers(slot_id=slot_id, chain=chain, market=market)
-    
-    # Only get and clean networks if no filters applied (full cleanup)
-    has_filters = slot_id is not None or chain is not None or market is not None
-    if not has_filters:
-        networks = get_powerloom_networks()
-    else:
-        networks = []  # Skip network cleanup when filters are applied
-    
     screen_sessions = get_powerloom_screen_sessions(
         slot_id=slot_id, chain=chain, market=market
     )
@@ -265,20 +307,50 @@ def cleanup_resources(
                 continue
         console.print("Container cleanup completed", style="green")
 
-    if networks and (
-        force or typer.confirm("Would you like to remove Powerloom networks?")
-    ):
-        console.print("Removing networks...", style="yellow")
-        for network in networks:
-            try:
-                run_with_sudo(["docker", "network", "rm", network], capture_output=True)
-                console.print(f"✅ Removed network: {network}", style="green")
-            except subprocess.CalledProcessError as e:
-                console.print(
-                    f"⚠️  Failed to remove network {network}: {e}", style="red"
-                )
-                continue
-        console.print("Network cleanup completed", style="green")
+    # Smart network cleanup: Only remove networks that have no Powerloom containers attached
+    # This handles all scenarios:
+    # - Full cleanup (no filters): All containers removed → All networks empty → Remove all
+    # - Partial cleanup (e.g., --chain mainnet --market uniswapv2): All containers for that
+    #   combo removed → That network empty → Remove only that network
+    # - Single slot cleanup (e.g., --slot-id 5481): One container removed → Network still
+    #   has other containers → Keep network
+    all_networks = get_powerloom_networks()
+    
+    if all_networks:
+        # Check which networks are empty (no Powerloom containers attached)
+        empty_networks = []
+        for network in all_networks:
+            attached_containers = get_network_containers(network)
+            if len(attached_containers) == 0:
+                empty_networks.append(network)
+        
+        # Only prompt to remove networks that are actually empty
+        if empty_networks and (
+            force or typer.confirm(
+                f"Would you like to remove {len(empty_networks)} empty Powerloom network(s)?"
+            )
+        ):
+            console.print("Removing empty networks...", style="yellow")
+            for network in empty_networks:
+                try:
+                    run_with_sudo(["docker", "network", "rm", network], capture_output=True)
+                    console.print(f"✅ Removed network: {network}", style="green")
+                except subprocess.CalledProcessError as e:
+                    console.print(
+                        f"⚠️  Failed to remove network {network}: {e}", style="red"
+                    )
+                    continue
+            console.print("Network cleanup completed", style="green")
+        elif empty_networks:
+            console.print(
+                f"ℹ️  {len(empty_networks)} empty network(s) found but not removed",
+                style="blue"
+            )
+        else:
+            console.print(
+                "ℹ️  No empty networks found (all networks have active containers)",
+                style="blue"
+            )
 
 
 def run_diagnostics(
