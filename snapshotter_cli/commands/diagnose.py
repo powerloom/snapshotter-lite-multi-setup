@@ -141,10 +141,10 @@ def get_powerloom_networks() -> List[str]:
 
 def get_network_containers(network_name: str) -> List[str]:
     """Get Powerloom containers attached to a specific Docker network.
-    
+
     Args:
         network_name: Name of the Docker network to inspect
-        
+
     Returns:
         List of Powerloom container names attached to the network
     """
@@ -162,10 +162,10 @@ def get_network_containers(network_name: str) -> List[str]:
             capture_output=True,
             text=True,
         )
-        
+
         # Parse container names from output
         all_containers = result.stdout.strip().split()
-        
+
         # Filter to only include Powerloom-related containers
         # This ensures we only count relevant containers when deciding to remove networks
         powerloom_patterns = [
@@ -175,13 +175,13 @@ def get_network_containers(network_name: str) -> List[str]:
             "powerloom-mainnet-",
             "local-collector",
         ]
-        
+
         powerloom_containers = [
             container
             for container in all_containers
             if any(pattern in container for pattern in powerloom_patterns)
         ]
-        
+
         return powerloom_containers
     except subprocess.CalledProcessError:
         # If network doesn't exist or inspection fails, return empty list
@@ -315,7 +315,7 @@ def cleanup_resources(
     # - Single slot cleanup (e.g., --slot-id 5481): One container removed → Network still
     #   has other containers → Keep network
     all_networks = get_powerloom_networks()
-    
+
     if all_networks:
         # Check which networks are empty (no Powerloom containers attached)
         empty_networks = []
@@ -323,17 +323,20 @@ def cleanup_resources(
             attached_containers = get_network_containers(network)
             if len(attached_containers) == 0:
                 empty_networks.append(network)
-        
+
         # Only prompt to remove networks that are actually empty
         if empty_networks and (
-            force or typer.confirm(
+            force
+            or typer.confirm(
                 f"Would you like to remove {len(empty_networks)} empty Powerloom network(s)?"
             )
         ):
             console.print("Removing empty networks...", style="yellow")
             for network in empty_networks:
                 try:
-                    run_with_sudo(["docker", "network", "rm", network], capture_output=True)
+                    run_with_sudo(
+                        ["docker", "network", "rm", network], capture_output=True
+                    )
                     console.print(f"✅ Removed network: {network}", style="green")
                 except subprocess.CalledProcessError as e:
                     console.print(
@@ -344,12 +347,12 @@ def cleanup_resources(
         elif empty_networks:
             console.print(
                 f"ℹ️  {len(empty_networks)} empty network(s) found but not removed",
-                style="blue"
+                style="blue",
             )
         else:
             console.print(
                 "ℹ️  No empty networks found (all networks have active containers)",
-                style="blue"
+                style="blue",
             )
 
 
