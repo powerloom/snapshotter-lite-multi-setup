@@ -207,7 +207,14 @@ def cleanup_resources(
         market: Optional data market name to filter by
     """
     containers = get_powerloom_containers(slot_id=slot_id, chain=chain, market=market)
-    networks = get_powerloom_networks()
+    
+    # Only get and clean networks if no filters applied (full cleanup)
+    has_filters = slot_id is not None or chain is not None or market is not None
+    if not has_filters:
+        networks = get_powerloom_networks()
+    else:
+        networks = []  # Skip network cleanup when filters are applied
+    
     screen_sessions = get_powerloom_screen_sessions(
         slot_id=slot_id, chain=chain, market=market
     )
