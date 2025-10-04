@@ -94,7 +94,7 @@ The CLI has been enhanced with several UX improvements:
 > [!NOTE]
 > This setup is for Lite nodes participating in the latest V2 of Powerloom Protocol with multiple data markets. [Protocol V1 setup](https://github.com/PowerLoom/snapshotter-lite-multi-setup/tree/master) is deprecated and its data markets are archived. Your submission data, rewards on it are finalized and recorded as [announced on Discord](https://discord.com/channels/777248105636560948/1146931631039463484/1242876184509812847).
 
-## 1\. Preparation
+## 1. Preparation
 
 Clone this repository and change into the repository's directory. All commands will be run within there henceforth.
 
