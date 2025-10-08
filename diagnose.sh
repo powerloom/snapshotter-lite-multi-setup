@@ -269,8 +269,25 @@ fi
 
 # Check for existing screen sessions
 echo -e "\n🖥️ Checking existing Powerloom screen sessions..."
+# Get screen sessions and extract just the session names (after the PID.)
 ALL_SCREENS=$(screen -ls | grep -E 'powerloom-(premainnet|testnet|mainnet)-v2|snapshotter|pl_.*_.*_[0-9]+' || true)
-EXISTING_SCREENS=$(apply_filters "$ALL_SCREENS")
+# Apply filters only to the session name part (after the dot), not the PID
+if [ -n "$ALL_SCREENS" ]; then
+    EXISTING_SCREENS=""
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            # Extract session name (part after the first dot)
+            session_name=$(echo "$line" | sed 's/^[[:space:]]*[0-9]*\.//')
+            # Apply filters to session name only
+            filtered=$(apply_filters "$session_name")
+            if [ -n "$filtered" ]; then
+                EXISTING_SCREENS="${EXISTING_SCREENS}${EXISTING_SCREENS:+$'\n'}$line"
+            fi
+        fi
+    done <<< "$ALL_SCREENS"
+else
+    EXISTING_SCREENS=""
+fi
 if [ -n "$EXISTING_SCREENS" ]; then
     echo -e "${YELLOW}Found existing Powerloom screen sessions:${NC}"
     echo "$EXISTING_SCREENS"
