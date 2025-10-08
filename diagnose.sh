@@ -173,11 +173,14 @@ echo -e "\n📁 Checking for Powerloom deployment directories..."
 # - powerloom-mainnet-v2-*
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS version
-    EXISTING_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
+    ALL_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
 else
     # Linux version
-    EXISTING_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
+    ALL_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
 fi
+
+# Apply filters to directories
+EXISTING_DIRS=$(apply_filters "$ALL_DIRS")
 
 if [ -n "$EXISTING_DIRS" ]; then
     echo -e "${YELLOW}Found existing Powerloom deployment directories:${NC}"
