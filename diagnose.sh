@@ -304,29 +304,60 @@ if [ -n "$EXISTING_SCREENS" ]; then
 fi
 
 if [ -n "$EXISTING_NETWORKS" ]; then
-    if [ "$AUTO_CLEANUP" = true ]; then
-        remove_networks="y"
+    # Smart network removal based on filters
+    if [ -n "$FILTER_SLOT_ID" ]; then
+        # Never remove networks when filtering by slot ID (other slots might be using them)
+        echo -e "${YELLOW}ℹ️ Skipping network removal (filtering by slot ID - networks are shared across slots)${NC}"
     else
-        read -p "Would you like to remove existing Powerloom networks? (y/n): " remove_networks
-    fi
-    if [ "$remove_networks" = "y" ]; then
-        echo -e "\n${YELLOW}Removing networks...${NC}"
-        NETWORK_REMOVAL_FAILED=false
-
-        echo "$EXISTING_NETWORKS" | xargs -P64 -I {} bash -c '
-            network="$1"
-            if ! docker network rm "$network" 2>/dev/null; then
-                echo -e "\033[0;31m❌ Failed to remove network ${network}\033[0m"
-                exit 1
-            fi
-        ' -- {} || NETWORK_REMOVAL_FAILED=true
-
-        if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
-            echo -e "\n${YELLOW}⚠️  Warning: Some networks could not be removed due to active endpoints.${NC}"
-            echo -e "${YELLOW}This usually means there are still some containers using these networks.${NC}"
-            echo -e "${YELLOW}A system-wide cleanup might be necessary to remove all resources.${NC}"
+        # For chain/market filters or no filters, only remove networks that are actually empty
+        if [ "$AUTO_CLEANUP" = true ]; then
+            remove_networks="y"
         else
-            echo -e "${GREEN}✅ Networks removed${NC}"
+            read -p "Would you like to remove empty Powerloom networks? (y/n): " remove_networks
+        fi
+        if [ "$remove_networks" = "y" ]; then
+            echo -e "\n${YELLOW}Checking and removing empty networks...${NC}"
+            NETWORK_REMOVAL_FAILED=false
+            NETWORKS_KEPT=0
+            NETWORKS_REMOVED=0
+
+            for network in $EXISTING_NETWORKS; do
+                # Check if network has any connected containers
+                # Look for the "Containers": { section and check if it's empty or has entries
+                NETWORK_INFO=$(docker network inspect "$network" 2>/dev/null || echo "")
+                if [ -n "$NETWORK_INFO" ]; then
+                    # Check if Containers section exists and has entries
+                    # Empty containers section looks like: "Containers": {},
+                    # Non-empty has entries like: "Containers": { "abc123...": { ... } },
+                    HAS_CONTAINERS=$(echo "$NETWORK_INFO" | grep -A2 '"Containers":' | grep -c '"Name":' || echo "0")
+                else
+                    HAS_CONTAINERS="0"
+                fi
+
+                if [ "$HAS_CONTAINERS" -eq "0" ]; then
+                    # Network is empty, safe to remove
+                    if docker network rm "$network" 2>/dev/null; then
+                        echo -e "${GREEN}✅ Removed empty network: ${network}${NC}"
+                        NETWORKS_REMOVED=$((NETWORKS_REMOVED + 1))
+                    else
+                        echo -e "${YELLOW}⚠️ Failed to remove network ${network}${NC}"
+                        NETWORK_REMOVAL_FAILED=true
+                    fi
+                else
+                    echo -e "${YELLOW}ℹ️ Keeping network ${network} (still has connected containers)${NC}"
+                    NETWORKS_KEPT=$((NETWORKS_KEPT + 1))
+                fi
+            done
+
+            if [ "$NETWORKS_REMOVED" -gt 0 ]; then
+                echo -e "${GREEN}✅ Removed ${NETWORKS_REMOVED} empty network(s)${NC}"
+            fi
+            if [ "$NETWORKS_KEPT" -gt 0 ]; then
+                echo -e "${YELLOW}ℹ️ Kept ${NETWORKS_KEPT} network(s) with active containers${NC}"
+            fi
+            if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
+                echo -e "${YELLOW}⚠️ Some networks could not be removed${NC}"
+            fi
         fi
     fi
 fi
@@ -346,7 +377,7 @@ if [ -n "$EXISTING_DIRS" ]; then
 fi
 
 # Add system-wide cleanup option with context-aware message
-if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
+if [ "${NETWORK_REMOVAL_FAILED:-false}" = true ]; then
     echo -e "\n${YELLOW}Due to network removal failures, a system-wide cleanup is recommended.${NC}"
 fi
 
