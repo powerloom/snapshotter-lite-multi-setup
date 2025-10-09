@@ -1,6 +1,6 @@
 [project]
 name = "powerloom-snapshotter-cli"
-version = "0.1.5"
+version = "0.1.6"
 description = "CLI tool for deploying and managing Powerloom Snapshotter nodes"
 authors = [{name = "Powerloom Protocol", email = "hello@powerloom.io"}]
 readme = "PYPI_README.md"
