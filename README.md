@@ -94,7 +94,7 @@ The CLI has been enhanced with several UX improvements:
 > [!NOTE]
 > This setup is for Lite nodes participating in the latest V2 of Powerloom Protocol with multiple data markets. [Protocol V1 setup](https://github.com/PowerLoom/snapshotter-lite-multi-setup/tree/master) is deprecated and its data markets are archived. Your submission data, rewards on it are finalized and recorded as [announced on Discord](https://discord.com/channels/777248105636560948/1146931631039463484/1242876184509812847).
 
-## 1\. Preparation
+## 1. Preparation
 
 Clone this repository and change into the repository's directory. All commands will be run within there henceforth.
 
@@ -476,6 +476,24 @@ The multi setup comes bundled with a diagnostic and cleanup script.
 
 > [!NOTE]
 > The `-y` flag is recommended to be used as it will skip all the prompts and cleanup existing Powerloom containers and legacy Docker networks without asking for confirmation. If you want to run the script with prompts, you can run it without the `-y` flag.
+
+**Selective Cleanup (New):**
+
+You can now target specific deployments for cleanup:
+
+```bash
+# Clean up specific slot ID
+./diagnose.sh -y -s 5483
+
+# Clean up specific chain
+./diagnose.sh -y -c mainnet
+
+# Clean up specific market
+./diagnose.sh -y -m uniswapv2
+
+# Combine filters
+./diagnose.sh -y -s 1234 -c devnet -m aavev3
+```
 
 The following output may vary depending on whether you have run snapshotter node(s) before this setup or not.
 

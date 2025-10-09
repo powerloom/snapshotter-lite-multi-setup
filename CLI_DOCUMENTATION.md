@@ -185,8 +185,11 @@ powerloom-snapshotter> list
 powerloom-snapshotter> status --env devnet --market uniswapv2
 [Shows status of instances...]
 
-powerloom-snapshotter> diagnose --clean
-[Runs diagnostics and cleanup...]
+powerloom-snapshotter> diagnose --clean --slot-id 5483
+[Runs diagnostics and cleans up only slot 5483...]
+
+powerloom-snapshotter> diagnose --clean --chain mainnet --market uniswapv2
+[Runs diagnostics and cleans up only mainnet UNISWAPV2 deployments...]
 
 powerloom-snapshotter> exit
 Goodbye!
@@ -309,7 +312,7 @@ powerloom-snapshotter-cli status --env devnet --market uniswapv2
 
 ### diagnose
 
-Run diagnostics on the system and optionally clean up existing deployments.
+Run diagnostics on the system and optionally clean up existing deployments. Supports filtering to target specific slot IDs, chains, or markets for selective cleanup.
 
 ```bash
 powerloom-snapshotter-cli diagnose [OPTIONS]
@@ -318,14 +321,38 @@ powerloom-snapshotter-cli diagnose [OPTIONS]
 **Options:**
 - `--clean, -c`: Clean up existing deployments
 - `--force, -f`: Force cleanup without confirmation (use with --clean)
+- `--slot-id, -s TEXT`: Filter by specific slot ID
+- `--chain TEXT`: Filter by chain name (e.g., 'mainnet', 'devnet')
+- `--market, -m TEXT`: Filter by data market name (e.g., 'uniswapv2', 'aavev3')
+
+**Examples:**
+
+```bash
+# Clean up all containers and screen sessions across all chains/markets
+powerloom-snapshotter-cli diagnose --clean --force
+
+# Clean up only containers/sessions for a specific slot ID
+powerloom-snapshotter-cli diagnose --clean --slot-id 5483
+
+# Clean up only mainnet deployments
+powerloom-snapshotter-cli diagnose --clean --chain mainnet
+
+# Clean up only UNISWAPV2 market deployments
+powerloom-snapshotter-cli diagnose --clean --market uniswapv2
+
+# Clean up specific combination (mainnet + UNISWAPV2)
+powerloom-snapshotter-cli diagnose --clean --chain mainnet --market uniswapv2
+
+# Clean up specific slot on devnet AAVEV3 market
+powerloom-snapshotter-cli diagnose --clean --slot-id 1234 --chain devnet --market aavev3
+```
 
 **Diagnostics include:**
-- Python version check
-- System resources (CPU, memory, disk)
 - Docker installation and status
-- Network connectivity
-- Required port availability
-- Running instances status
+- Docker Compose availability
+- Running Powerloom containers (filtered by provided options)
+- Docker networks
+- Screen sessions (filtered by provided options)
 
 ### identity
 

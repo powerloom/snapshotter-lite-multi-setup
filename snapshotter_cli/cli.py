@@ -204,11 +204,24 @@ def diagnose(
     force: bool = typer.Option(
         False, "--force", "-f", help="Force cleanup without confirmation"
     ),
+    slot_id: Optional[str] = typer.Option(
+        None, "--slot-id", "-s", help="Filter by specific slot ID"
+    ),
+    chain: Optional[str] = typer.Option(
+        None, "--chain", help="Filter by chain name (e.g., 'mainnet', 'devnet')"
+    ),
+    market: Optional[str] = typer.Option(
+        None,
+        "--market",
+        "-m",
+        help="Filter by data market name (e.g., 'uniswapv2', 'aavev3')",
+    ),
 ):
     """
-    Run diagnostics on the system and optionally clean up existing deployments
+    Run diagnostics on the system and optionally clean up existing deployments.
+    Use filters to target specific slot IDs, chains, or markets.
     """
-    diagnose_command(clean, force)
+    diagnose_command(clean, force, slot_id=slot_id, chain=chain, market=market)
 
 
 @app.command()

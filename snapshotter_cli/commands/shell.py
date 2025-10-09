@@ -168,6 +168,9 @@ def get_missing_parameters(
                         console.print(
                             f"✅ Auto-selected source chain: [bold cyan]{value}[/bold cyan]"
                         )
+                    elif param_name == "slot_id" or param_name == "slot-id":
+                        # Prompt for slot ID (no special handling needed, just get input)
+                        value = Prompt.ask(f"\n[cyan]{param_help}[/cyan]")
                     elif param_name == "chain":
                         # Get available chains from CLI context
                         available_chains = ["MAINNET", "DEVNET"]

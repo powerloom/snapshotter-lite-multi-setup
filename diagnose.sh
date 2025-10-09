@@ -37,17 +37,69 @@ get_used_subnets() {
     done
 }
 
+# Function to apply filters to a list of names (case-insensitive)
+apply_filters() {
+    local input="$1"
+    local result="$input"
+
+    # Apply slot_id filter
+    if [ -n "$FILTER_SLOT_ID" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_SLOT_ID" || true)
+    fi
+
+    # Apply chain filter (case-insensitive)
+    if [ -n "$FILTER_CHAIN" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_CHAIN" || true)
+    fi
+
+    # Apply market filter (case-insensitive)
+    if [ -n "$FILTER_MARKET" ]; then
+        result=$(echo "$result" | grep -i "$FILTER_MARKET" || true)
+    fi
+
+    echo "$result"
+}
+
 # Parse command line arguments
 AUTO_CLEANUP=false
-while getopts "y" opt; do
+FILTER_SLOT_ID=""
+FILTER_CHAIN=""
+FILTER_MARKET=""
+
+while getopts "ys:c:m:" opt; do
     case $opt in
         y) AUTO_CLEANUP=true ;;
-        *) echo "Usage: $0 [-y]" >&2
+        s) FILTER_SLOT_ID="$OPTARG" ;;
+        c) FILTER_CHAIN="$OPTARG" ;;
+        m) FILTER_MARKET="$OPTARG" ;;
+        *) echo "Usage: $0 [-y] [-s SLOT_ID] [-c CHAIN] [-m MARKET]" >&2
+           echo "  -y            Auto cleanup without prompts" >&2
+           echo "  -s SLOT_ID    Filter by specific slot ID" >&2
+           echo "  -c CHAIN      Filter by chain name (e.g., mainnet, devnet)" >&2
+           echo "  -m MARKET     Filter by market name (e.g., uniswapv2, aavev3)" >&2
            exit 1 ;;
     esac
 done
 
-echo "🔍 Starting Powerloom Node Diagnostics..."
+# Display filter information if any filters are active
+FILTER_MSG=""
+if [ -n "$FILTER_SLOT_ID" ]; then
+    FILTER_MSG="${FILTER_MSG}Slot ID: ${FILTER_SLOT_ID}, "
+fi
+if [ -n "$FILTER_CHAIN" ]; then
+    FILTER_MSG="${FILTER_MSG}Chain: ${FILTER_CHAIN}, "
+fi
+if [ -n "$FILTER_MARKET" ]; then
+    FILTER_MSG="${FILTER_MSG}Market: ${FILTER_MARKET}, "
+fi
+
+if [ -n "$FILTER_MSG" ]; then
+    # Remove trailing comma and space
+    FILTER_MSG="${FILTER_MSG%, }"
+    echo "🔍 Starting Powerloom Node Diagnostics (Filters: ${FILTER_MSG})..."
+else
+    echo "🔍 Starting Powerloom Node Diagnostics..."
+fi
 
 # Phase 1: System Checks
 echo -e "\n📦 Checking Docker installation..."
@@ -76,7 +128,8 @@ echo -e "${GREEN}✅ Docker Compose is available${NC}"
 
 # Check existing containers and networks
 echo -e "\n🔍 Checking existing Powerloom containers..."
-EXISTING_CONTAINERS=$(docker ps -a --filter "name=snapshotter-lite-v2" --filter "name=powerloom" --filter "name=local-collector" --filter "name=autoheal" --format "{{.Names}}")
+ALL_CONTAINERS=$(docker ps -a --filter "name=snapshotter-lite-v2" --filter "name=powerloom" --filter "name=local-collector" --filter "name=autoheal" --format "{{.Names}}")
+EXISTING_CONTAINERS=$(apply_filters "$ALL_CONTAINERS")
 if [ -n "$EXISTING_CONTAINERS" ]; then
     echo -e "${YELLOW}Found existing Powerloom containers:${NC}"
     echo "$EXISTING_CONTAINERS"
@@ -120,11 +173,14 @@ echo -e "\n📁 Checking for Powerloom deployment directories..."
 # - powerloom-mainnet-v2-*
 if [[ "$OSTYPE" == "darwin"* ]]; then
     # macOS version
-    EXISTING_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
+    ALL_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
 else
     # Linux version
-    EXISTING_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
+    ALL_DIRS=$(find . -maxdepth 1 -type d \( -name "powerloom-premainnet-v2-*" -o -name "powerloom-testnet*" -o -name "powerloom-mainnet-v2-*" \) -exec basename {} \; || true)
 fi
+
+# Apply filters to directories
+EXISTING_DIRS=$(apply_filters "$ALL_DIRS")
 
 if [ -n "$EXISTING_DIRS" ]; then
     echo -e "${YELLOW}Found existing Powerloom deployment directories:${NC}"
@@ -213,7 +269,25 @@ fi
 
 # Check for existing screen sessions
 echo -e "\n🖥️ Checking existing Powerloom screen sessions..."
-EXISTING_SCREENS=$(screen -ls | grep -E 'powerloom-(premainnet|testnet|mainnet)-v2|snapshotter|pl_.*_.*_[0-9]+' || true)
+# Get screen sessions and extract just the session names (after the PID.)
+ALL_SCREENS=$(screen -ls | grep -E 'powerloom-(premainnet|testnet|mainnet)-v2|snapshotter|pl_.*_.*_[0-9]+' || true)
+# Apply filters only to the session name part (after the dot), not the PID
+if [ -n "$ALL_SCREENS" ]; then
+    EXISTING_SCREENS=""
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            # Extract session name (part after the first dot)
+            session_name=$(echo "$line" | sed 's/^[[:space:]]*[0-9]*\.//')
+            # Apply filters to session name only
+            filtered=$(apply_filters "$session_name")
+            if [ -n "$filtered" ]; then
+                EXISTING_SCREENS="${EXISTING_SCREENS}${EXISTING_SCREENS:+$'\n'}$line"
+            fi
+        fi
+    done <<< "$ALL_SCREENS"
+else
+    EXISTING_SCREENS=""
+fi
 if [ -n "$EXISTING_SCREENS" ]; then
     echo -e "${YELLOW}Found existing Powerloom screen sessions:${NC}"
     echo "$EXISTING_SCREENS"
@@ -230,29 +304,60 @@ if [ -n "$EXISTING_SCREENS" ]; then
 fi
 
 if [ -n "$EXISTING_NETWORKS" ]; then
-    if [ "$AUTO_CLEANUP" = true ]; then
-        remove_networks="y"
+    # Smart network removal based on filters
+    if [ -n "$FILTER_SLOT_ID" ]; then
+        # Never remove networks when filtering by slot ID (other slots might be using them)
+        echo -e "${YELLOW}ℹ️ Skipping network removal (filtering by slot ID - networks are shared across slots)${NC}"
     else
-        read -p "Would you like to remove existing Powerloom networks? (y/n): " remove_networks
-    fi
-    if [ "$remove_networks" = "y" ]; then
-        echo -e "\n${YELLOW}Removing networks...${NC}"
-        NETWORK_REMOVAL_FAILED=false
-
-        echo "$EXISTING_NETWORKS" | xargs -P64 -I {} bash -c '
-            network="$1"
-            if ! docker network rm "$network" 2>/dev/null; then
-                echo -e "\033[0;31m❌ Failed to remove network ${network}\033[0m"
-                exit 1
-            fi
-        ' -- {} || NETWORK_REMOVAL_FAILED=true
-
-        if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
-            echo -e "\n${YELLOW}⚠️  Warning: Some networks could not be removed due to active endpoints.${NC}"
-            echo -e "${YELLOW}This usually means there are still some containers using these networks.${NC}"
-            echo -e "${YELLOW}A system-wide cleanup might be necessary to remove all resources.${NC}"
+        # For chain/market filters or no filters, only remove networks that are actually empty
+        if [ "$AUTO_CLEANUP" = true ]; then
+            remove_networks="y"
         else
-            echo -e "${GREEN}✅ Networks removed${NC}"
+            read -p "Would you like to remove empty Powerloom networks? (y/n): " remove_networks
+        fi
+        if [ "$remove_networks" = "y" ]; then
+            echo -e "\n${YELLOW}Checking and removing empty networks...${NC}"
+            NETWORK_REMOVAL_FAILED=false
+            NETWORKS_KEPT=0
+            NETWORKS_REMOVED=0
+
+            for network in $EXISTING_NETWORKS; do
+                # Check if network has any connected containers
+                # Look for the "Containers": { section and check if it's empty or has entries
+                NETWORK_INFO=$(docker network inspect "$network" 2>/dev/null || echo "")
+                if [ -n "$NETWORK_INFO" ]; then
+                    # Check if Containers section exists and has entries
+                    # Empty containers section looks like: "Containers": {},
+                    # Non-empty has entries like: "Containers": { "abc123...": { ... } },
+                    HAS_CONTAINERS=$(echo "$NETWORK_INFO" | grep -A2 '"Containers":' | grep -c '"Name":' || echo "0")
+                else
+                    HAS_CONTAINERS="0"
+                fi
+
+                if [ "$HAS_CONTAINERS" -eq "0" ]; then
+                    # Network is empty, safe to remove
+                    if docker network rm "$network" 2>/dev/null; then
+                        echo -e "${GREEN}✅ Removed empty network: ${network}${NC}"
+                        NETWORKS_REMOVED=$((NETWORKS_REMOVED + 1))
+                    else
+                        echo -e "${YELLOW}⚠️ Failed to remove network ${network}${NC}"
+                        NETWORK_REMOVAL_FAILED=true
+                    fi
+                else
+                    echo -e "${YELLOW}ℹ️ Keeping network ${network} (still has connected containers)${NC}"
+                    NETWORKS_KEPT=$((NETWORKS_KEPT + 1))
+                fi
+            done
+
+            if [ "$NETWORKS_REMOVED" -gt 0 ]; then
+                echo -e "${GREEN}✅ Removed ${NETWORKS_REMOVED} empty network(s)${NC}"
+            fi
+            if [ "$NETWORKS_KEPT" -gt 0 ]; then
+                echo -e "${YELLOW}ℹ️ Kept ${NETWORKS_KEPT} network(s) with active containers${NC}"
+            fi
+            if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
+                echo -e "${YELLOW}⚠️ Some networks could not be removed${NC}"
+            fi
         fi
     fi
 fi
@@ -272,7 +377,7 @@ if [ -n "$EXISTING_DIRS" ]; then
 fi
 
 # Add system-wide cleanup option with context-aware message
-if [ "$NETWORK_REMOVAL_FAILED" = true ]; then
+if [ "${NETWORK_REMOVAL_FAILED:-false}" = true ]; then
     echo -e "\n${YELLOW}Due to network removal failures, a system-wide cleanup is recommended.${NC}"
 fi
 

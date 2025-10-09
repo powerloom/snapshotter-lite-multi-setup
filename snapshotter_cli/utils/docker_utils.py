@@ -22,7 +22,7 @@ def get_docker_container_status_for_instance(
     if not chain_name_upper or not market_name_upper:
         # slot_id might be missing if parsing failed, but chain/market are more critical for collector
         console.print(
-            "[dim]Skipping Docker search: chain name or market name not provided for filtering.[/dim]",
+            "[dim]Skipping Docker search: chain name or data market name not provided for filtering.[/dim]",
             style="yellow",
         )
         return containers

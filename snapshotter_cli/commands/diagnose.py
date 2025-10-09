@@ -64,8 +64,16 @@ def check_docker_compose() -> Tuple[bool, str]:
         return False, "Neither docker-compose nor Docker Compose plugin found"
 
 
-def get_powerloom_containers() -> List[Dict[str, str]]:
-    """Get list of Powerloom containers with their IDs and names."""
+def get_powerloom_containers(
+    slot_id: str = None, chain: str = None, market: str = None
+) -> List[Dict[str, str]]:
+    """Get list of Powerloom containers with their IDs and names.
+
+    Args:
+        slot_id: Optional slot ID to filter by
+        chain: Optional chain name to filter by (e.g., 'mainnet', 'devnet')
+        market: Optional data market name to filter by (e.g., 'uniswapv2', 'aavev3')
+    """
     try:
         # Create a list of filters for different container name patterns
         filters = [
@@ -86,6 +94,22 @@ def get_powerloom_containers() -> List[Dict[str, str]]:
         for line in result.stdout.strip().split("\n"):
             if line:
                 container_id, container_name = line.strip().split("\t")
+
+                # Apply filters if provided
+                name_upper = container_name.upper()
+
+                # Filter by slot_id (numeric, check in original case)
+                if slot_id and slot_id not in container_name:
+                    continue
+
+                # Filter by chain (case-insensitive)
+                if chain and chain.upper() not in name_upper:
+                    continue
+
+                # Filter by market (case-insensitive)
+                if market and market.upper() not in name_upper:
+                    continue
+
                 containers.append(
                     {"id": container_id.strip(), "name": container_name.strip()}
                 )
@@ -115,8 +139,65 @@ def get_powerloom_networks() -> List[str]:
         return []
 
 
-def get_powerloom_screen_sessions() -> List[Dict[str, str]]:
-    """Get list of Powerloom screen sessions."""
+def get_network_containers(network_name: str) -> List[str]:
+    """Get Powerloom containers attached to a specific Docker network.
+
+    Args:
+        network_name: Name of the Docker network to inspect
+
+    Returns:
+        List of Powerloom container names attached to the network
+    """
+    try:
+        # Inspect the network and get all attached container names
+        result = run_with_sudo(
+            [
+                "docker",
+                "network",
+                "inspect",
+                network_name,
+                "--format",
+                "{{range .Containers}}{{.Name}} {{end}}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        # Parse container names from output
+        all_containers = result.stdout.strip().split()
+
+        # Filter to only include Powerloom-related containers
+        # This ensures we only count relevant containers when deciding to remove networks
+        powerloom_patterns = [
+            "snapshotter-lite-v2",
+            "powerloom-premainnet-",
+            "powerloom-testnet-",
+            "powerloom-mainnet-",
+            "local-collector",
+        ]
+
+        powerloom_containers = [
+            container
+            for container in all_containers
+            if any(pattern in container for pattern in powerloom_patterns)
+        ]
+
+        return powerloom_containers
+    except subprocess.CalledProcessError:
+        # If network doesn't exist or inspection fails, return empty list
+        return []
+
+
+def get_powerloom_screen_sessions(
+    slot_id: str = None, chain: str = None, market: str = None
+) -> List[Dict[str, str]]:
+    """Get list of Powerloom screen sessions.
+
+    Args:
+        slot_id: Optional slot ID to filter by
+        chain: Optional chain name to filter by (e.g., 'mainnet', 'devnet')
+        market: Optional data market name to filter by (e.g., 'uniswapv2', 'aavev3')
+    """
     try:
         # Use screen -ls to list sessions and grep for powerloom patterns
         result = subprocess.run(["screen", "-ls"], capture_output=True, text=True)
@@ -139,17 +220,46 @@ def get_powerloom_screen_sessions() -> List[Dict[str, str]]:
                 # Extract session ID from the line (first number in the line)
                 session_id = line.split(".")[0].strip()
                 if session_id.isdigit():
+                    # Apply filters if provided
+                    line_upper = line.upper()
+
+                    # Filter by slot_id (numeric, check in original case)
+                    if slot_id and slot_id not in line:
+                        continue
+
+                    # Filter by chain (case-insensitive)
+                    if chain and chain.upper() not in line_upper:
+                        continue
+
+                    # Filter by market (case-insensitive)
+                    if market and market.upper() not in line_upper:
+                        continue
+
                     sessions.append({"id": session_id, "name": line.strip()})
         return sessions
     except subprocess.CalledProcessError:
         return []
 
 
-def cleanup_resources(force: bool = False) -> None:
-    """Clean up Docker resources."""
-    containers = get_powerloom_containers()
-    networks = get_powerloom_networks()
-    screen_sessions = get_powerloom_screen_sessions()
+def cleanup_resources(
+    force: bool = False,
+    slot_id: str = None,
+    chain: str = None,
+    market: str = None,
+) -> None:
+    """Clean up Docker resources.
+
+    Args:
+        force: Skip confirmation prompts
+        slot_id: Optional slot ID to filter by
+        chain: Optional chain name to filter by
+        market: Optional data market name to filter by
+    """
+    # Get resources to clean based on filters
+    containers = get_powerloom_containers(slot_id=slot_id, chain=chain, market=market)
+    screen_sessions = get_powerloom_screen_sessions(
+        slot_id=slot_id, chain=chain, market=market
+    )
 
     if screen_sessions and (
         force
@@ -197,24 +307,71 @@ def cleanup_resources(force: bool = False) -> None:
                 continue
         console.print("Container cleanup completed", style="green")
 
-    if networks and (
-        force or typer.confirm("Would you like to remove Powerloom networks?")
-    ):
-        console.print("Removing networks...", style="yellow")
-        for network in networks:
-            try:
-                run_with_sudo(["docker", "network", "rm", network], capture_output=True)
-                console.print(f"✅ Removed network: {network}", style="green")
-            except subprocess.CalledProcessError as e:
-                console.print(
-                    f"⚠️  Failed to remove network {network}: {e}", style="red"
-                )
-                continue
-        console.print("Network cleanup completed", style="green")
+    # Smart network cleanup: Only remove networks that have no Powerloom containers attached
+    # This handles all scenarios:
+    # - Full cleanup (no filters): All containers removed → All networks empty → Remove all
+    # - Partial cleanup (e.g., --chain mainnet --market uniswapv2): All containers for that
+    #   combo removed → That network empty → Remove only that network
+    # - Single slot cleanup (e.g., --slot-id 5481): One container removed → Network still
+    #   has other containers → Keep network
+    all_networks = get_powerloom_networks()
+
+    if all_networks:
+        # Check which networks are empty (no Powerloom containers attached)
+        empty_networks = []
+        for network in all_networks:
+            attached_containers = get_network_containers(network)
+            if len(attached_containers) == 0:
+                empty_networks.append(network)
+
+        # Only prompt to remove networks that are actually empty
+        if empty_networks and (
+            force
+            or typer.confirm(
+                f"Would you like to remove {len(empty_networks)} empty Powerloom network(s)?"
+            )
+        ):
+            console.print("Removing empty networks...", style="yellow")
+            for network in empty_networks:
+                try:
+                    run_with_sudo(
+                        ["docker", "network", "rm", network], capture_output=True
+                    )
+                    console.print(f"✅ Removed network: {network}", style="green")
+                except subprocess.CalledProcessError as e:
+                    console.print(
+                        f"⚠️  Failed to remove network {network}: {e}", style="red"
+                    )
+                    continue
+            console.print("Network cleanup completed", style="green")
+        elif empty_networks:
+            console.print(
+                f"ℹ️  {len(empty_networks)} empty network(s) found but not removed",
+                style="blue",
+            )
+        else:
+            console.print(
+                "ℹ️  No empty networks found (all networks have active containers)",
+                style="blue",
+            )
 
 
-def run_diagnostics(clean: bool = False, force: bool = False) -> None:
-    """Run system diagnostics and optionally clean up resources."""
+def run_diagnostics(
+    clean: bool = False,
+    force: bool = False,
+    slot_id: str = None,
+    chain: str = None,
+    market: str = None,
+) -> None:
+    """Run system diagnostics and optionally clean up resources.
+
+    Args:
+        clean: Enable cleanup mode
+        force: Skip confirmation prompts
+        slot_id: Optional slot ID to filter by
+        chain: Optional chain name to filter by
+        market: Optional data market name to filter by
+    """
     # Check Docker installation and status
     docker_ok, docker_msg = check_docker_status()
     console.print(
@@ -234,8 +391,10 @@ def run_diagnostics(clean: bool = False, force: bool = False) -> None:
     if not compose_ok:
         return
 
-    # Show existing resources
-    if containers := get_powerloom_containers():
+    # Show existing resources (apply filters if provided)
+    if containers := get_powerloom_containers(
+        slot_id=slot_id, chain=chain, market=market
+    ):
         console.print("\nExisting Powerloom containers:", style="yellow")
         # Get full container details for display
         try:
@@ -276,19 +435,51 @@ def run_diagnostics(clean: bool = False, force: bool = False) -> None:
         for network in networks:
             console.print(f"  • {network}")
 
-    if screen_sessions := get_powerloom_screen_sessions():
+    if screen_sessions := get_powerloom_screen_sessions(
+        slot_id=slot_id, chain=chain, market=market
+    ):
         console.print("\nExisting Powerloom screen sessions:", style="yellow")
         for session in screen_sessions:
             console.print(f"  • {session['name']}")
 
     # Clean up if requested
     if clean or (containers or networks or screen_sessions):
-        cleanup_resources(force)
+        cleanup_resources(force, slot_id=slot_id, chain=chain, market=market)
 
 
-def diagnose_command(clean: bool = False, force: bool = False):
-    """CLI command handler for diagnose."""
-    console.print(
-        "🔍 Running Powerloom Snapshotter Node Diagnostics...", style="bold blue"
-    )
-    run_diagnostics(clean, force)
+def diagnose_command(
+    clean: bool = False,
+    force: bool = False,
+    slot_id: str = None,
+    chain: str = None,
+    market: str = None,
+):
+    """CLI command handler for diagnose.
+
+    Args:
+        clean: Enable cleanup mode
+        force: Skip confirmation prompts
+        slot_id: Optional slot ID to filter by
+        chain: Optional chain name to filter by (e.g., 'mainnet', 'devnet')
+        market: Optional data market name to filter by (e.g., 'uniswapv2', 'aavev3')
+    """
+    # Display filter information if any filters are applied
+    filters_applied = []
+    if slot_id:
+        filters_applied.append(f"Slot ID: {slot_id}")
+    if chain:
+        filters_applied.append(f"Chain: {chain}")
+    if market:
+        filters_applied.append(f"Market: {market}")
+
+    if filters_applied:
+        console.print(
+            f"🔍 Running Powerloom Snapshotter Node Diagnostics (Filters: {', '.join(filters_applied)})...",
+            style="bold blue",
+        )
+    else:
+        console.print(
+            "🔍 Running Powerloom Snapshotter Node Diagnostics...", style="bold blue"
+        )
+
+    run_diagnostics(clean, force, slot_id=slot_id, chain=chain, market=market)
