@@ -5,7 +5,7 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.1.6] - 2025-10-09
 
 ### Added
 - **Selective cleanup filters (#89)** - Added `--slot-id`, `--chain`, and `--market` filter options to `diagnose` command (CLI, shell mode, and legacy `diagnose.sh` script) for targeted cleanup of specific deployments instead of cleaning everything at once
