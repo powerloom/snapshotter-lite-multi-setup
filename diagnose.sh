@@ -323,13 +323,17 @@ if [ -n "$EXISTING_NETWORKS" ]; then
 
             for network in $EXISTING_NETWORKS; do
                 # Check if network has any connected containers
-                # Look for the "Containers": { section and check if it's empty or has entries
+                # Use docker network inspect and check if Containers is empty {}
                 NETWORK_INFO=$(docker network inspect "$network" 2>/dev/null || echo "")
                 if [ -n "$NETWORK_INFO" ]; then
-                    # Check if Containers section exists and has entries
-                    # Empty containers section looks like: "Containers": {},
-                    # Non-empty has entries like: "Containers": { "abc123...": { ... } },
-                    HAS_CONTAINERS=$(echo "$NETWORK_INFO" | grep -A2 '"Containers":' | grep -c '"Name":' || echo "0")
+                    # Check if the Containers section is empty
+                    # Empty: "Containers": {},
+                    # With containers: "Containers": { "id": {...} }
+                    if echo "$NETWORK_INFO" | grep -q '"Containers": {}'; then
+                        HAS_CONTAINERS="0"
+                    else
+                        HAS_CONTAINERS="1"
+                    fi
                 else
                     HAS_CONTAINERS="0"
                 fi
