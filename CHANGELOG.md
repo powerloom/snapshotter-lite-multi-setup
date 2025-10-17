@@ -5,6 +5,22 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Multi-Profile Support (#90)** - Manage multiple wallet configurations for the same chain+market combination
+- **Profile commands** - New `profile` command group: `create`, `list`, `copy`, `delete`, `set-default`, `show`, `export`, `import`
+- **Profile parameter** - Added `--profile` flag to `configure`, `deploy`, and `identity list` commands
+- **Shell mode profile display** - Shows active profile in prompt: `[profile-name] powerloom-snapshotter>`
+- **POWERLOOM_PROFILE** - Environment variable support for profile selection
+
+### Changed
+- **Configuration storage** - Configs now stored in `~/.powerloom-snapshotter-cli/profiles/{profile_name}/` with automatic migration of existing configs to "default" profile
+- **Shell mode auto-injection** - Commands automatically use active profile when `--profile` not specified
+
+### Fixed
+- **Shell welcome banner** - Now correctly displays active profile from environment variable instead of always showing default
+
 ## [v0.1.6] - 2025-10-09
 
 ### Added
@@ -107,6 +123,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.1.6]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.6
 [v0.1.5]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.5
 [v0.1.4]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.4
 [v0.1.3]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.3

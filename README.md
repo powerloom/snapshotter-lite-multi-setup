@@ -23,6 +23,10 @@ powerloom-snapshotter> configure
 powerloom-snapshotter> deploy
 powerloom-snapshotter> list
 powerloom-snapshotter> status
+
+# Or with a specific profile:
+POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
+# Prompt shows: [production] powerloom-snapshotter>
 ```
 
 💡 **Why use shell mode?** The CLI has a startup time for each command. Shell mode eliminates this delay, giving you instant command execution!
@@ -45,6 +49,55 @@ The CLI has been enhanced with several UX improvements:
   - Fixed terminal display issues in PyInstaller builds
   - All prompts now display correctly with proper newlines
   - Binaries built on Ubuntu 22.04 for better compatibility
+
+### 🆕 Multi-Profile Support (v0.2.0+)
+
+The CLI now supports **multiple user profiles**, allowing you to manage different wallet configurations for the same chain+market combination:
+
+#### Profile Management Commands
+
+```bash
+# Create a new profile
+powerloom-snapshotter-cli profile create wallet-alice
+
+# List all profiles
+powerloom-snapshotter-cli profile list
+
+# Copy an existing profile
+powerloom-snapshotter-cli profile copy default production
+
+# Set default profile
+powerloom-snapshotter-cli profile set-default production
+
+# Delete a profile
+powerloom-snapshotter-cli profile delete wallet-alice
+```
+
+#### Using Profiles
+
+```bash
+# Configure with a specific profile
+powerloom-snapshotter-cli configure --profile wallet-alice --env mainnet --market uniswapv2
+
+# Deploy using a profile
+powerloom-snapshotter-cli deploy --profile wallet-alice
+
+# Use environment variable
+export POWERLOOM_PROFILE=wallet-alice
+powerloom-snapshotter-cli deploy  # Uses wallet-alice automatically
+
+# Shell mode with profile
+POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
+# The prompt shows: [production] powerloom-snapshotter>
+```
+
+#### Key Benefits
+
+- **Multiple Wallets**: Maintain unlimited wallet configurations for the same chain+market
+- **Easy Switching**: Quick profile changes without reconfiguration
+- **Team Collaboration**: Export/import profile templates (without credentials)
+- **Zero Breaking Changes**: Existing configs auto-migrate to "default" profile
+- **Shell Integration**: Active profile shown in prompt and auto-used for commands
 
 ### Key CLI Features
 
@@ -631,6 +684,55 @@ She clones `X(#of wallets)` multiscript directories, each with different destina
 4. Alice then navigates to the second repository (by `cd <directory-name>`), initializes the environment (by `./bootstrap.sh`) and inputs all the necessary info for wallet2 and sets **RPC1**. She then deploys node from wallet 2 by running deploy script: (by `uv run python multi_clone.py`) and follows [Deploy a subset of slots](#221-deploy-a-subset-of-slots)Finally, she repeats the same process for **Slot 3** from **Wallet 3**, just as she did for Slot 2.
 
 BOOM! Alice did it. **Four slots from three different wallet running on single VPS.** Mission accomplished. 🎉
+
+### 4.3 Managing Multiple Wallets with CLI Profiles (NEW!)
+
+Meet Charlie, the profile master. Charlie manages slots for three different entities - his personal wallet, his company's wallet, and a client's wallet. With the new multi-profile support, he can elegantly manage all of them:
+
+1. **Initial Setup**: Charlie creates profiles for each wallet:
+   ```bash
+   powerloom-snapshotter-cli profile create personal --description "My personal slots"
+   powerloom-snapshotter-cli profile create company --description "Company validator slots"
+   powerloom-snapshotter-cli profile create client-a --description "Client A managed slots"
+   ```
+
+2. **Configure Each Profile**: He configures each profile with the appropriate credentials:
+   ```bash
+   # Personal wallet configuration
+   powerloom-snapshotter-cli configure --profile personal --env mainnet --market uniswapv2
+
+   # Company wallet configuration
+   powerloom-snapshotter-cli configure --profile company --env mainnet --market uniswapv2
+
+   # Client wallet configuration
+   powerloom-snapshotter-cli configure --profile client-a --env mainnet --market uniswapv2
+   ```
+
+3. **Daily Operations**: Charlie can now easily switch between profiles:
+   ```bash
+   # Monday: Deploy personal slots
+   powerloom-snapshotter-cli deploy --profile personal
+
+   # Tuesday: Check company nodes status
+   powerloom-snapshotter-cli status --profile company
+
+   # Wednesday: Update client configuration
+   powerloom-snapshotter-cli configure --profile client-a
+   ```
+
+4. **Shell Mode Magic**: Charlie prefers using shell mode for each profile:
+   ```bash
+   # Work on company nodes
+   POWERLOOM_PROFILE=company powerloom-snapshotter-cli shell
+   [company] powerloom-snapshotter> deploy
+   [company] powerloom-snapshotter> status
+
+   # Switch to client management
+   POWERLOOM_PROFILE=client-a powerloom-snapshotter-cli shell
+   [client-a] powerloom-snapshotter> diagnose
+   ```
+
+BOOM! Charlie manages three different wallets seamlessly without ever mixing up credentials or overwriting configurations. **Profile power activated!** 🚀
 
 
 ## Development and Build Instructions

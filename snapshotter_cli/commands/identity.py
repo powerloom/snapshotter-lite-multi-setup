@@ -1,7 +1,7 @@
 import os
 from glob import glob
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import typer
 from rich.table import Table
@@ -22,69 +22,144 @@ identity_app = typer.Typer(
 )
 
 
-def list_env_files(cli_context: CLIContext) -> List[Path]:
-    """Find all namespaced .env files in the user's home directory using known chains and markets."""
-    env_files = []
+def list_env_files_with_profiles(cli_context: CLIContext) -> List[Dict]:
+    """Find all namespaced .env files across all profiles."""
+    from snapshotter_cli.utils.profile import PROFILES_DIR, ensure_profile_structure
+
+    # Ensure profile structure exists
+    ensure_profile_structure()
+
+    env_files_info = []
     available_chains = [x.lower() for x in cli_context.available_environments]
     available_markets = [x.lower() for x in cli_context.available_markets]
 
-    # Create config directory if it doesn't exist
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    # Search for env files in all profiles
+    if PROFILES_DIR.exists():
+        for profile_dir in PROFILES_DIR.iterdir():
+            if profile_dir.is_dir():
+                profile_name = profile_dir.name
+                for file in profile_dir.glob(".env.*.*.*"):
+                    parts = file.name.strip().split(".")
+                    if len(parts) == 5:
+                        chain, market, source_chain = (
+                            parts[2].lower(),
+                            parts[3].lower(),
+                            parts[4],
+                        )
+                        if chain in available_chains and market in available_markets:
+                            env_files_info.append(
+                                {
+                                    "path": file,
+                                    "profile": profile_name,
+                                    "chain": chain,
+                                    "market": market,
+                                    "source": source_chain,
+                                }
+                            )
 
-    # Search for env files in the config directory
-    for file in CONFIG_DIR.glob(".env.*.*.*"):
-        parts = file.name.strip().split(".")
-        if len(parts) == 5:
-            chain, market, source_chain = parts[2].lower(), parts[3].lower(), parts[4]
-            if chain in available_chains and market in available_markets:
-                env_files.append(file)
+    # Also check legacy locations for backward compatibility
+    # Check old CONFIG_DIR location
+    if CONFIG_DIR.exists():
+        for file in CONFIG_DIR.glob(".env.*.*.*"):
+            parts = file.name.strip().split(".")
+            if len(parts) == 5:
+                chain, market, source_chain = (
+                    parts[2].lower(),
+                    parts[3].lower(),
+                    parts[4],
+                )
+                if chain in available_chains and market in available_markets:
+                    env_files_info.append(
+                        {
+                            "path": file,
+                            "profile": "[Legacy]",
+                            "chain": chain,
+                            "market": market,
+                            "source": source_chain,
+                        }
+                    )
 
-    # Also check current directory for backward compatibility
+    # Check current directory
     for file in Path().glob(".env.*.*.*"):
         parts = file.name.strip().split(".")
         if len(parts) == 5:
             chain, market, source_chain = parts[2].lower(), parts[3].lower(), parts[4]
             if chain in available_chains and market in available_markets:
-                # If file exists in both places, prefer the one in config directory
-                if not any(ef.name == file.name for ef in env_files):
-                    console.print(
-                        f"⚠️ Found legacy env file in current directory: {file}. Consider moving it to {CONFIG_DIR}",
-                        style="yellow",
+                # Avoid duplicates
+                if not any(ef["path"].name == file.name for ef in env_files_info):
+                    env_files_info.append(
+                        {
+                            "path": file,
+                            "profile": "[CWD]",
+                            "chain": chain,
+                            "market": market,
+                            "source": source_chain,
+                        }
                     )
-                    env_files.append(file)
 
-    return sorted(env_files)
+    return sorted(env_files_info, key=lambda x: (x["profile"], x["chain"], x["market"]))
 
 
 @identity_app.command("list")
-def list_identities(ctx: typer.Context):
-    """List all configured identities (namespaced .env files) with basic status."""
+def list_identities(
+    ctx: typer.Context,
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Filter by specific profile name"
+    ),
+):
+    """List all configured identities (namespaced .env files) across all profiles."""
     cli_context: CLIContext = ctx.obj
-    env_files = list_env_files(cli_context)
+    env_files_info = list_env_files_with_profiles(cli_context)
 
-    if not env_files:
-        console.print(
-            "No namespaced .env files found. Use 'powerloom-snapshotter-cli configure' to create one.",
-            style="yellow",
-        )
+    # Filter by profile if specified
+    if profile:
+        env_files_info = [ef for ef in env_files_info if ef["profile"] == profile]
+
+    if not env_files_info:
+        if profile:
+            console.print(
+                f"No configurations found for profile '{profile}'.",
+                style="yellow",
+            )
+            console.print(
+                f"Use 'powerloom-snapshotter-cli configure --profile {profile}' to add configurations.",
+                style="blue",
+            )
+        else:
+            console.print(
+                "No configurations found. Use 'powerloom-snapshotter-cli configure' to create one.",
+                style="yellow",
+            )
+            console.print(
+                "Or use 'powerloom-snapshotter-cli profile create' to create a new profile.",
+                style="blue",
+            )
         return
 
+    # Set table title based on whether we're filtering
+    if profile:
+        table_title = f"Configured Identities for Profile: {profile}"
+    else:
+        table_title = "Configured Identities Across All Profiles"
+
     table = Table(
-        title="Configured Identities",
+        title=table_title,
         show_header=True,
         header_style="bold blue",
         title_style="bold cyan",
     )
+    table.add_column("Profile", style="bold magenta")
     table.add_column("Powerloom Chain", style="magenta")
     table.add_column("Market", style="cyan")
     table.add_column("Source Chain", style="green")
     table.add_column("Status", style="yellow")
 
-    for env_file in env_files:
-        parts = env_file.name.split(".")
-        chain = parts[2].upper()
-        market = parts[3].upper()
-        source_chain = parts[4].upper()
+    for env_file_info in env_files_info:
+        env_file = env_file_info["path"]
+        profile = env_file_info["profile"]
+        chain = env_file_info["chain"].upper()
+        market = env_file_info["market"].upper()
+        source_chain = env_file_info["source"].upper()
 
         env_vars = parse_env_file_vars(str(env_file))
 
@@ -98,20 +173,37 @@ def list_identities(ctx: typer.Context):
             status_parts.append("❌ No Key")
         if not env_vars.get("SOURCE_RPC_URL"):
             status_parts.append("❌ No RPC")
-        if not env_vars.get("POWERLOOM_RPC_URL"):
-            status_parts.append("❌ No Powerloom RPC")
 
-        status = "✓ Ready" if not status_parts else " ".join(status_parts)
+        status = (
+            "✓ Ready" if not status_parts else " ".join(status_parts[:2])
+        )  # Show first 2 issues
 
-        table.add_row(chain, market, source_chain, status)
+        # Add profile indicator
+        if profile == "[Legacy]":
+            profile_display = f"[yellow]{profile}[/yellow]"
+        elif profile == "[CWD]":
+            profile_display = f"[dim]{profile}[/dim]"
+        else:
+            profile_display = profile
+
+        table.add_row(profile_display, chain, market, source_chain, status)
 
     console.print(table)
+
+    # Check for legacy files
+    has_legacy = any(ef["profile"] in ["[Legacy]", "[CWD]"] for ef in env_files_info)
+    if has_legacy:
+        console.print(
+            "\n⚠️ [yellow]Legacy configurations found. Run 'powerloom-snapshotter-cli profile list' to migrate them.[/yellow]",
+            style="yellow",
+        )
+
     console.print(
-        "\nℹ️ Use 'powerloom-snapshotter-cli identity show --chain <CHAIN> --market <MARKET> --source-chain <SOURCE_CHAIN>' to view detailed configuration.",
+        "\nℹ️ Use 'powerloom-snapshotter-cli configure --profile <PROFILE>' to add configurations.",
         style="blue",
     )
     console.print(
-        "ℹ️ Use 'powerloom-snapshotter-cli configure' to create or update these configurations.",
+        "ℹ️ Use 'powerloom-snapshotter-cli profile list' to manage profiles.",
         style="blue",
     )
 

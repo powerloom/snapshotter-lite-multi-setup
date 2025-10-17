@@ -17,6 +17,12 @@ from snapshotter_cli import get_version_string
 from snapshotter_cli.utils.changelog import display_changelog, get_latest_changes
 from snapshotter_cli.utils.console import Prompt, console
 from snapshotter_cli.utils.deployment import CONFIG_DIR
+from snapshotter_cli.utils.profile import (
+    PROFILES_DIR,
+    ProfileConfig,
+    ensure_profile_structure,
+    get_active_profile,
+)
 
 try:
     import readline
@@ -162,7 +168,45 @@ def get_missing_parameters(
                     param_help = getattr(param, "help", "") or f"Enter {param_name}"
 
                     # Special handling for known parameters
-                    if param_name == "source_chain" or param_name == "source-chain":
+                    if param_name == "profile":
+                        # Get list of available profiles
+                        from snapshotter_cli.utils.profile import list_profiles
+
+                        profiles_info = list_profiles()
+                        profile_names = [p["name"] for p in profiles_info]
+
+                        if profile_names:
+                            console.print(f"\nAvailable profiles:")
+                            for i, profile in enumerate(profile_names, 1):
+                                console.print(
+                                    f"  [bold green]{i}.[/] [cyan]{profile}[/]"
+                                )
+
+                            while True:
+                                profile_input = Prompt.ask(
+                                    f"[cyan]{param_help}[/cyan]", default="default"
+                                )
+                                # Check if numeric selection
+                                if profile_input.isdigit():
+                                    idx = int(profile_input) - 1
+                                    if 0 <= idx < len(profile_names):
+                                        value = profile_names[idx]
+                                        break
+                                # Check if profile name
+                                elif profile_input in profile_names:
+                                    value = profile_input
+                                    break
+                                else:
+                                    console.print(
+                                        "❌ Invalid profile. Please try again.",
+                                        style="red",
+                                    )
+                        else:
+                            value = "default"
+                            console.print(
+                                f"✅ Using default profile (no profiles found)"
+                            )
+                    elif param_name == "source_chain" or param_name == "source-chain":
                         # Auto-select ETH-MAINNET without prompting
                         value = "ETH-MAINNET"
                         console.print(
@@ -288,6 +332,12 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
     """Run an interactive shell for the CLI."""
     global COMMANDS
 
+    # Ensure profile structure exists
+    ensure_profile_structure()
+
+    # Get the actual active profile (considers POWERLOOM_PROFILE env var)
+    active_profile = get_active_profile()
+
     # Setup readline history and autocomplete if available
     history_file = None
     if HAS_READLINE:
@@ -324,6 +374,12 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
 
     # Build the welcome message
     welcome_msg = f"[bold green]Powerloom Snapshotter CLI v{get_version_string()} - Interactive Mode[/bold green]\n"
+
+    # Show active profile
+    welcome_msg += (
+        f"[dim]Profile: [bold magenta]{active_profile}[/bold magenta][/dim]\n\n"
+    )
+
     welcome_msg += "Type 'help' for available commands, 'exit' or 'quit' to leave.\n"
     if HAS_READLINE:
         welcome_msg += (
@@ -403,17 +459,26 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
 
     while True:
         try:
+            # Get current active profile (might change after configure command)
+            current_profile = get_active_profile()
+
+            # Build prompt with profile indicator
+            if current_profile != "default":
+                prompt_text = f"\n[{current_profile}] powerloom-snapshotter> "
+                rich_prompt_text = f"\n[dim][{current_profile}][/dim] [bold cyan]powerloom-snapshotter[/bold cyan]"
+            else:
+                prompt_text = "\npowerloom-snapshotter> "
+                rich_prompt_text = "\n[bold cyan]powerloom-snapshotter[/bold cyan]"
+
             # Get user input with readline support
             if HAS_READLINE:
                 try:
-                    command_line = input("\npowerloom-snapshotter> ").strip()
+                    command_line = input(prompt_text).strip()
                 except EOFError:
                     console.print("\n[yellow]Goodbye![/yellow]")
                     break
             else:
-                command_line = Prompt.ask(
-                    "\n[bold cyan]powerloom-snapshotter[/bold cyan]", default=""
-                ).strip()
+                command_line = Prompt.ask(rich_prompt_text, default="").strip()
 
             if not command_line:
                 continue
@@ -425,6 +490,54 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
             if cmd_name in special_commands:
                 special_commands[cmd_name]()
                 continue
+
+            # Auto-inject profile for commands that support it (if not already specified)
+            # Commands that support --profile: configure, deploy
+            profile_supporting_commands = ["configure", "deploy"]
+
+            # Commands with subcommands that support --profile
+            profile_supporting_subcommands = {
+                "identity": ["list"]  # Only the list subcommand supports --profile
+            }
+
+            if cmd_name in profile_supporting_commands and current_profile != "default":
+                # Check if --profile is already in the args
+                has_profile = False
+                for arg in args:
+                    if arg == "--profile" or arg.startswith("--profile="):
+                        has_profile = True
+                        break
+
+                # If no --profile specified and we're not using default, inject it
+                if not has_profile:
+                    args = ["--profile", current_profile] + args
+                    console.print(f"[dim]→ Using profile: {current_profile}[/dim]")
+
+            # Handle commands with subcommands
+            elif (
+                cmd_name in profile_supporting_subcommands
+                and current_profile != "default"
+            ):
+                # Check if we have a subcommand that supports --profile
+                if args and args[0] in profile_supporting_subcommands[cmd_name]:
+                    subcommand = args[0]
+                    subcommand_args = args[1:] if len(args) > 1 else []
+
+                    # Check if --profile is already in the subcommand args
+                    has_profile = False
+                    for arg in subcommand_args:
+                        if arg == "--profile" or arg.startswith("--profile="):
+                            has_profile = True
+                            break
+
+                    # If no --profile specified and we're not using default, inject it after subcommand
+                    if not has_profile:
+                        args = [
+                            subcommand,
+                            "--profile",
+                            current_profile,
+                        ] + subcommand_args
+                        console.print(f"[dim]→ Using profile: {current_profile}[/dim]")
 
             # Handle regular commands
             if cmd_name in commands:
@@ -467,11 +580,8 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
                             cmd_ctx.obj = parent_ctx.obj
                         click_group.invoke(cmd_ctx)
 
-                except click.exceptions.Exit:
-                    # Normal exit from command
-                    pass
-                except typer.Exit:
-                    # Commands might call typer.Exit, which we should catch
+                except (click.exceptions.Exit, typer.Exit):
+                    # Normal exit from command (both Click and Typer exits)
                     pass
                 except click.exceptions.UsageError as e:
                     # Handle missing required parameters more gracefully
