@@ -240,8 +240,9 @@ def get_active_profile(explicit_profile: Optional[str] = None) -> str:
     Determine the active profile based on priority:
     1. Explicit profile parameter
     2. POWERLOOM_PROFILE environment variable
-    3. Last used profile from config
-    4. Default profile
+    3. Default profile from config (set by 'profile set-default')
+    4. Last used profile from config
+    5. Hardcoded default profile
     """
     if explicit_profile:
         if not profile_exists(explicit_profile):
@@ -263,12 +264,18 @@ def get_active_profile(explicit_profile: Optional[str] = None) -> str:
             return DEFAULT_PROFILE
         return env_profile
 
-    # Use last used or default
+    # Check config for default profile (set by 'profile set-default')
     config = ProfileConfig()
+    default = config.get_default_profile()
+    if default != DEFAULT_PROFILE and profile_exists(default):
+        return default
+
+    # Check for last used profile
     last_used = config.get_last_used_profile()
-    if profile_exists(last_used):
+    if last_used != DEFAULT_PROFILE and profile_exists(last_used):
         return last_used
 
+    # Fall back to hardcoded default
     return DEFAULT_PROFILE
 
 
