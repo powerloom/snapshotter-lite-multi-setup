@@ -130,6 +130,7 @@ def get_missing_parameters(
     """Interactively prompt for missing required parameters."""
     # Parse what parameters were already provided
     provided_params = {}
+    positional_args = []
     i = 0
     while i < len(args):
         if args[i].startswith("-"):
@@ -144,23 +145,33 @@ def get_missing_parameters(
                 provided_params[param_name] = True
                 i += 1
         else:
+            # This is a positional argument
+            positional_args.append(args[i])
             i += 1
 
     # Collect missing required parameters
     collected_args = list(args)
 
     if hasattr(click_cmd, "params"):
+        positional_index = 0  # Track which positional arg we're checking
         for param in click_cmd.params:
             if hasattr(param, "required") and param.required:
                 # Check if this parameter was provided
                 param_names = getattr(param, "opts", [])
                 provided = False
 
-                for opt in param_names:
-                    opt_name = opt.lstrip("-")
-                    if opt_name in provided_params:
+                if param_names:
+                    # This is an option parameter
+                    for opt in param_names:
+                        opt_name = opt.lstrip("-")
+                        if opt_name in provided_params:
+                            provided = True
+                            break
+                else:
+                    # This is a positional parameter
+                    if positional_index < len(positional_args):
                         provided = True
-                        break
+                        positional_index += 1
 
                 if not provided:
                     # This is a missing required parameter, prompt for it
@@ -168,7 +179,47 @@ def get_missing_parameters(
                     param_help = getattr(param, "help", "") or f"Enter {param_name}"
 
                     # Special handling for known parameters
-                    if param_name == "profile":
+                    if (
+                        param_name == "name"
+                        and hasattr(click_cmd, "callback")
+                        and click_cmd.callback
+                        and "profile" in click_cmd.callback.__name__
+                    ):
+                        # This is a profile-related command, show available profiles
+                        from snapshotter_cli.utils.profile import list_profiles
+
+                        profiles_info = list_profiles()
+                        profile_names = [p["name"] for p in profiles_info]
+
+                        if profile_names:
+                            console.print(f"\nAvailable profiles:")
+                            for i, profile in enumerate(profile_names, 1):
+                                console.print(
+                                    f"  [bold green]{i}.[/] [cyan]{profile}[/]"
+                                )
+
+                            while True:
+                                profile_input = Prompt.ask(
+                                    f"[cyan]{param_help}[/cyan]"
+                                ).strip()  # Strip any whitespace
+                                # Check if numeric selection
+                                if profile_input.isdigit():
+                                    idx = int(profile_input) - 1
+                                    if 0 <= idx < len(profile_names):
+                                        value = profile_names[idx]
+                                        break
+                                # Check if profile name
+                                elif profile_input in profile_names:
+                                    value = profile_input
+                                    break
+                                else:
+                                    console.print(
+                                        "❌ Invalid profile. Please try again.",
+                                        style="red",
+                                    )
+                        else:
+                            value = Prompt.ask(f"\n[cyan]{param_help}[/cyan]")
+                    elif param_name == "profile":
                         # Get list of available profiles
                         from snapshotter_cli.utils.profile import list_profiles
 
@@ -321,9 +372,18 @@ def get_missing_parameters(
                         value = Prompt.ask(f"\n[cyan]{param_help}[/cyan]")
 
                     # Add the parameter to args
-                    # Use the first option name (usually the long form)
-                    if param_names:
+                    # Check if this is a positional argument or an option
+                    if (
+                        param_names
+                        and len(param_names) > 0
+                        and param_names[0].startswith("-")
+                    ):
+                        # This is an option (has --name format)
                         collected_args.extend([param_names[0], value])
+                    else:
+                        # This is a positional argument (no -- prefix)
+                        # Just add the value directly
+                        collected_args.append(value)
 
     return collected_args
 
