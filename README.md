@@ -31,7 +31,7 @@ POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
 
 💡 **Why use shell mode?** The CLI has a startup time for each command. Shell mode eliminates this delay, giving you instant command execution!
 
-### Recent CLI Improvements (August 1st 2025)
+### Recent CLI Improvements
 
 The CLI has been enhanced with several UX improvements:
 
