@@ -185,13 +185,19 @@ def get_missing_parameters(
                         and click_cmd.callback
                         and "profile" in click_cmd.callback.__name__
                     ):
-                        # This is a profile-related command, show available profiles
+                        # Check if this is the create command (needs NEW name) or other commands (need EXISTING name)
+                        is_create_command = "create" in click_cmd.callback.__name__
+
                         from snapshotter_cli.utils.profile import list_profiles
 
                         profiles_info = list_profiles()
                         profile_names = [p["name"] for p in profiles_info]
 
-                        if profile_names:
+                        if is_create_command:
+                            # For create command, just prompt for a new name (don't validate against existing)
+                            value = Prompt.ask(f"\n[cyan]{param_help}[/cyan]").strip()
+                        elif profile_names:
+                            # For other commands, show existing profiles and validate
                             console.print(f"\nAvailable profiles:")
                             for i, profile in enumerate(profile_names, 1):
                                 console.print(
