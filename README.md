@@ -91,6 +91,28 @@ POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
 # The prompt shows: [production] powerloom-snapshotter>
 ```
 
+#### Export/Import Profiles
+
+```bash
+# Export profile template (without credentials for sharing)
+powerloom-snapshotter-cli profile export wallet-alice --output alice-template.json
+
+# Export with credentials (for secure backup only!)
+powerloom-snapshotter-cli profile export wallet-alice --output backup.json --include-credentials
+
+# Import profile template (prompts for credentials)
+powerloom-snapshotter-cli profile import alice-template.json --name wallet-alice
+
+# Import and merge with existing profile
+powerloom-snapshotter-cli profile import updates.json --name wallet-alice --merge
+```
+
+**Export/Import Notes:**
+- Default export excludes sensitive data (private keys, RPC URLs)
+- Import prompts for wallet address, other credentials added via `configure`
+- Use `--include-credentials` only for private backups, never share these files
+- Perfect for team collaboration: share structure without exposing secrets
+
 #### Key Benefits
 
 - **Multiple Wallets**: Maintain unlimited wallet configurations for the same chain+market
