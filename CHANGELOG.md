@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Configuration storage** - Configs now stored in `~/.powerloom-snapshotter-cli/profiles/{profile_name}/` with automatic migration of existing configs to "default" profile
 - **Shell mode auto-injection** - Commands automatically use active profile when `--profile` not specified
 
+### Fixed
+- **Shell mode --help flag** - Fixed `--help` flag handling for command groups (like `profile --help`) in shell mode
+
 ## [v0.1.6] - 2025-10-09
 
 ### Added
