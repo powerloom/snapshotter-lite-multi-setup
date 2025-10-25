@@ -609,7 +609,14 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
                     if hasattr(click_cmd, "commands"):
                         # This is a command group, check if first arg is a valid subcommand
                         potential_subcmd = args[0] if args else None
-                        if potential_subcmd and potential_subcmd in click_cmd.commands:
+
+                        # Special handling for --help flag
+                        if potential_subcmd == "--help" or potential_subcmd == "-h":
+                            # Let Click handle the help display
+                            pass  # Will be processed normally below
+                        elif (
+                            potential_subcmd and potential_subcmd in click_cmd.commands
+                        ):
                             # We have a valid subcommand, include it in the context
                             pass  # Let the normal flow handle it
                         else:
@@ -618,14 +625,23 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
                                 console.print(
                                     f"[red]Error: Command '{cmd_name}' requires a subcommand[/red]"
                                 )
-                            else:
+                            elif not potential_subcmd.startswith("-"):
+                                # Only show error for non-flag arguments
                                 console.print(
                                     f"[red]Error: '{potential_subcmd}' is not a valid subcommand for '{cmd_name}'[/red]"
                                 )
-                            console.print(
-                                f"Available subcommands: {', '.join(click_cmd.commands.keys())}"
-                            )
-                            continue
+                                console.print(
+                                    f"Available subcommands: {', '.join(click_cmd.commands.keys())}"
+                                )
+                                continue
+                            elif potential_subcmd.startswith(
+                                "-"
+                            ) and potential_subcmd not in ["--help", "-h"]:
+                                # This is a flag but not --help, show subcommands
+                                console.print(
+                                    f"Available subcommands: {', '.join(click_cmd.commands.keys())}"
+                                )
+                                continue
 
                     # Create a new context for this command
                     click_group = get_command(app)
