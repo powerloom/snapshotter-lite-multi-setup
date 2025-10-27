@@ -482,7 +482,7 @@ def import_profile_command(
         # Prompt for missing credentials if not present
         if "WALLET_HOLDER_ADDRESS" not in config.get("settings", {}):
             wallet = Prompt.ask(
-                f"👉 Enter wallet address for {chain}/{market}/{source} (or press Enter to skip)",
+                f"👉 Enter slot NFT holder wallet address for {chain}/{market}/{source} (or press Enter to skip)",
                 default="",
             )
             if wallet:
