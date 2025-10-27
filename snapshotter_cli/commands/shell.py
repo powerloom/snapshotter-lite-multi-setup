@@ -563,7 +563,11 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
 
             # Commands with subcommands that support --profile
             profile_supporting_subcommands = {
-                "identity": ["list"]  # Only the list subcommand supports --profile
+                "identity": [
+                    "list",
+                    "show",
+                    "delete",
+                ]  # These subcommands support --profile
             }
 
             if cmd_name in profile_supporting_commands and current_profile != "default":

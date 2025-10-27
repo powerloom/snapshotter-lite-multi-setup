@@ -220,43 +220,65 @@ def show_identity(
     source_chain: str = typer.Option(
         ..., "--source-chain", "-s", help="Source chain name (e.g., ETH-MAINNET)"
     ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Profile name to use"
+    ),
 ):
     """Show the contents of a specific namespaced .env file."""
+    from snapshotter_cli.utils.profile import get_active_profile, get_profile_env_path
+
+    # Determine which profile to use
+    active_profile = get_active_profile(profile)
+
     # Normalize inputs for filename
     norm_chain = chain.lower()
     norm_market = market.lower()
     norm_source = source_chain.lower().replace("-", "_")
 
-    env_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
-        norm_chain, norm_market, norm_source
+    # Get env file path for the active profile
+    env_path = get_profile_env_path(
+        active_profile, norm_chain, norm_market, norm_source
     )
 
-    # First check in config directory
-    env_path = CONFIG_DIR / env_filename
-
-    # If not found in config directory, check current directory for backward compatibility
+    # Also check legacy locations for backward compatibility
     if not env_path.exists():
-        cwd_env_path = Path(os.getcwd()) / env_filename
-        if cwd_env_path.exists():
+        env_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+            norm_chain, norm_market, norm_source
+        )
+
+        # Check old CONFIG_DIR location
+        legacy_path = CONFIG_DIR / env_filename
+        if legacy_path.exists():
             console.print(
-                f"⚠️ Found legacy env file in current directory. Consider moving it to {CONFIG_DIR}",
+                f"⚠️ Found legacy env file. Consider migrating with 'profile list'.",
                 style="yellow",
             )
-            env_path = cwd_env_path
+            env_path = legacy_path
+        else:
+            # Check current directory
+            cwd_env_path = Path(os.getcwd()) / env_filename
+            if cwd_env_path.exists():
+                console.print(
+                    f"⚠️ Found legacy env file in current directory. Consider migrating with 'profile list'.",
+                    style="yellow",
+                )
+                env_path = cwd_env_path
 
     if not env_path.exists():
         console.print(
-            f"No configuration found for {chain}/{market}/{source_chain}.",
+            f"No configuration found for {chain}/{market}/{source_chain} in profile '{active_profile}'.",
             style="yellow",
         )
         console.print(
-            f"Use 'powerloom-snapshotter-cli configure' to create one.", style="blue"
+            f"Use 'powerloom-snapshotter-cli configure --profile {active_profile}' to create one.",
+            style="blue",
         )
         return
 
     env_vars = parse_env_file_vars(str(env_path))
 
     console.print(f"\n[bold]Configuration for {chain}/{market}/{source_chain}[/bold]")
+    console.print(f"Profile: [magenta]{active_profile}[/magenta]")
     console.print(f"File: {env_path}\n")
 
     # Display in sections
@@ -300,43 +322,66 @@ def delete_identity(
     source_chain: str = typer.Option(
         ..., "--source-chain", "-s", help="Source chain name (e.g., ETH-MAINNET)"
     ),
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Profile name to use"
+    ),
 ):
     """Delete a specific namespaced .env file."""
+    from snapshotter_cli.utils.profile import get_active_profile, get_profile_env_path
+
+    # Determine which profile to use
+    active_profile = get_active_profile(profile)
+
     # Normalize inputs for filename
     norm_chain = chain.lower()
     norm_market = market.lower()
     norm_source = source_chain.lower().replace("-", "_")
 
-    env_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
-        norm_chain, norm_market, norm_source
+    # Get env file path for the active profile
+    env_path = get_profile_env_path(
+        active_profile, norm_chain, norm_market, norm_source
     )
 
-    # First check in config directory
-    env_path = CONFIG_DIR / env_filename
-
-    # If not found in config directory, check current directory for backward compatibility
+    # Also check legacy locations for backward compatibility
     if not env_path.exists():
-        cwd_env_path = Path(os.getcwd()) / env_filename
-        if cwd_env_path.exists():
+        env_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+            norm_chain, norm_market, norm_source
+        )
+
+        # Check old CONFIG_DIR location
+        legacy_path = CONFIG_DIR / env_filename
+        if legacy_path.exists():
             console.print(
-                f"⚠️ Found legacy env file in current directory. Consider moving it to {CONFIG_DIR}",
+                f"⚠️ Found legacy env file. Consider migrating with 'profile list'.",
                 style="yellow",
             )
-            env_path = cwd_env_path
+            env_path = legacy_path
+        else:
+            # Check current directory
+            cwd_env_path = Path(os.getcwd()) / env_filename
+            if cwd_env_path.exists():
+                console.print(
+                    f"⚠️ Found legacy env file in current directory. Consider migrating with 'profile list'.",
+                    style="yellow",
+                )
+                env_path = cwd_env_path
 
     if not env_path.exists():
         console.print(
-            f"No configuration found for {chain}/{market}/{source_chain}.",
+            f"No configuration found for {chain}/{market}/{source_chain} in profile '{active_profile}'.",
             style="yellow",
         )
         return
 
     if typer.confirm(
-        f"Are you sure you want to delete the configuration for {chain}/{market}/{source_chain}?"
+        f"Are you sure you want to delete the configuration for {chain}/{market}/{source_chain} from profile '{active_profile}'?"
     ):
         try:
             env_path.unlink()
-            console.print(f"✅ Deleted configuration: {env_path}", style="green")
+            console.print(
+                f"✅ Deleted configuration from profile '{active_profile}': {env_path}",
+                style="green",
+            )
         except OSError as e:
             console.print(f"Error deleting configuration: {e}", style="bold red")
             raise typer.Exit(1)

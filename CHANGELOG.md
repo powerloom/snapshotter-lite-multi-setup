@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Multi-Profile Support (#90)** - Manage multiple wallet configurations for the same chain+market combination
 - **Profile commands** - New `profile` command group: `create`, `list`, `copy`, `delete`, `set-default`, `show`, `export`, `import`
-- **Profile parameter** - Added `--profile` flag to `configure`, `deploy`, and `identity list` commands
+- **Profile parameter** - Added `--profile` flag to `configure`, `deploy`, and `identity` commands
 - **Shell mode profile display** - Shows active profile in prompt: `[profile-name] powerloom-snapshotter>`
 - **POWERLOOM_PROFILE** - Environment variable support for profile selection
 
