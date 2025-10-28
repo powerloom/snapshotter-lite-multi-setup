@@ -41,6 +41,9 @@ def get_default_env_vars() -> Dict[str, str]:
 
 def configure_command(
     ctx: typer.Context,
+    profile: Optional[str] = typer.Option(
+        None, "--profile", help="Profile name to use (default: 'default')"
+    ),
     environment: Optional[str] = typer.Option(
         None, "--env", "-e", help="Powerloom chain name (e.g., DEVNET, MAINNET)"
     ),
@@ -199,37 +202,64 @@ def configure_command(
 
     selected_market_obj = chain_data.markets[selected_market_name_upper]
 
-    # --- Create Namespaced .env File ---
+    # --- Profile Support ---
+    from snapshotter_cli.utils.profile import (
+        ProfileConfig,
+        ensure_profile_structure,
+        get_active_profile,
+        get_profile_env_path,
+    )
+
+    # Ensure profile structure exists (handles migration)
+    ensure_profile_structure()
+
+    # Determine active profile
+    active_profile = get_active_profile(profile)
+
+    if active_profile != "default":
+        console.print(
+            f"🏷️ Using profile: [bold magenta]{active_profile}[/bold magenta]",
+            style="dim",
+        )
+
+    # Update last used profile
+    profile_config = ProfileConfig()
+    profile_config.set_last_used_profile(active_profile)
+
+    # --- Create Namespaced .env File in Profile ---
     norm_chain_name = selected_chain_name_upper.lower()
     norm_market_name = selected_market_name_upper.lower()
     norm_source_chain = selected_market_obj.sourceChain.lower().replace("-", "_")
 
-    # Create config directory if it doesn't exist
-    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    # Get profile-specific env file path
+    env_file_path = get_profile_env_path(
+        active_profile, norm_chain_name, norm_market_name, norm_source_chain
+    )
 
+    # Ensure profile directory exists
+    env_file_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Check legacy locations for backward compatibility
     env_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
         norm_chain_name, norm_market_name, norm_source_chain
     )
-    env_file_path = CONFIG_DIR / env_filename
 
-    # Check current directory for backward compatibility
-    cwd_env_path = Path(os.getcwd()) / env_filename
-    if cwd_env_path.exists():
+    # Check old CONFIG_DIR location
+    legacy_env_path = CONFIG_DIR / env_filename
+    if legacy_env_path.exists() and active_profile == "default":
         console.print(
-            f"⚠️ Found legacy env file in current directory. Moving it to {CONFIG_DIR}",
+            f"⚠️ Found legacy env file. Migrating to profile structure...",
             style="yellow",
         )
         try:
-            # Create backup in current directory
-            backup_path = cwd_env_path.with_suffix(cwd_env_path.suffix + ".backup")
-            cwd_env_path.rename(backup_path)
+            import shutil
+
+            shutil.move(str(legacy_env_path), str(env_file_path))
             console.print(
-                f"✓ Created backup of legacy file: {backup_path}", style="dim"
+                f"✓ Migrated configuration to profile '{active_profile}'", style="dim"
             )
         except OSError as e:
-            console.print(
-                f"⚠️ Could not create backup of legacy file: {e}", style="yellow"
-            )
+            console.print(f"⚠️ Could not migrate legacy file: {e}", style="yellow")
 
     # Load existing env file values if it exists
     existing_env_vars = {}
