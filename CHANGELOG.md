@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Shell mode --help flag** - Fixed `--help` flag handling for command groups (like `profile --help`) in shell mode
+- **Shell mode readline history** - Fixed extra character display when using arrow keys for command history navigation
 
 ## [v0.1.6] - 2025-10-09
 

@@ -530,15 +530,18 @@ def run_shell(app: typer.Typer, parent_ctx: typer.Context):
 
             # Build prompt with profile indicator
             if current_profile != "default":
-                prompt_text = f"\n[{current_profile}] powerloom-snapshotter> "
+                # For readline, avoid newline in prompt and print it separately
+                prompt_text = f"[{current_profile}] powerloom-snapshotter> "
                 rich_prompt_text = f"\n[dim][{current_profile}][/dim] [bold cyan]powerloom-snapshotter[/bold cyan]"
             else:
-                prompt_text = "\npowerloom-snapshotter> "
+                prompt_text = "powerloom-snapshotter> "
                 rich_prompt_text = "\n[bold cyan]powerloom-snapshotter[/bold cyan]"
 
             # Get user input with readline support
             if HAS_READLINE:
                 try:
+                    # Print newline before prompt to avoid readline display issues
+                    print()
                     command_line = input(prompt_text).strip()
                 except EOFError:
                     console.print("\n[yellow]Goodbye![/yellow]")
