@@ -186,6 +186,42 @@ def deploy_snapshotter_instance(
         console.print(
             f"    ✅ Base snapshotter copied successfully.", style="dim green"
         )
+
+        # 3. Clone local collector repository for BDS deployments
+        if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
+            console.print(
+                "  🔗 Cloning local collector repository for BDS deployment...",
+                style="dim",
+            )
+            try:
+                local_collector_repo_url = "https://github.com/powerloom/snapshotter-lite-local-collector.git"
+                local_collector_dir = instance_dir / "snapshotter-lite-local-collector"
+
+                # Clone the repository
+                subprocess.run(
+                    ["git", "clone", local_collector_repo_url, str(local_collector_dir)],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Checkout the specific branch
+                subprocess.run(
+                    ["git", "checkout", "feat/gossipsub-submissions"],
+                    check=True,
+                    capture_output=True,
+                    cwd=str(local_collector_dir),
+                )
+
+                console.print(
+                    "    ✅ Local collector repo cloned and checked out to feat/gossipsub-submissions branch",
+                    style="dim green",
+                )
+            except Exception as e:
+                console.print(
+                    f"    ❌ Failed to clone local collector repository: {e}",
+                    style="bold red",
+                )
+                return False
     except Exception as e:
         console.print(
             f"  ❌ Error copying base snapshotter files from {base_snapshotter_lite_repo_path} to {instance_dir}: {e}",
@@ -240,6 +276,11 @@ def deploy_snapshotter_instance(
     final_env_vars["SIGNER_ACCOUNT_PRIVATE_KEY"] = signer_private_key
     final_env_vars["POWERLOOM_RPC_URL"] = str(powerloom_chain_config.rpcURL).rstrip("/")
     final_env_vars["SOURCE_RPC_URL"] = source_chain_rpc_url
+
+    # Add BDS-specific environment variables for BDS_DEVNET_ALPHA_UNISWAPV3
+    if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
+        final_env_vars["DEV_MODE"] = "true"
+        final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = "8001"
 
     final_env_vars["DATA_MARKET_CONTRACT"] = market_config.contractAddress
     final_env_vars["PROTOCOL_STATE_CONTRACT"] = (
