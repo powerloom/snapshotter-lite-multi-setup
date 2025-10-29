@@ -17,6 +17,7 @@ from . import __version__, get_version_string
 from .commands.configure import configure_command
 from .commands.diagnose import diagnose_command
 from .commands.identity import identity_app
+from .commands.profile import profile_app
 from .commands.shell import shell_command
 from .utils.config_helpers import get_credential, get_source_chain_rpc_url
 from .utils.deployment import (
@@ -181,6 +182,7 @@ app = typer.Typer(
 )
 
 app.add_typer(identity_app, name="identity")
+app.add_typer(profile_app, name="profile")
 
 
 @app.command()
@@ -227,6 +229,11 @@ def diagnose(
 @app.command()
 def deploy(
     ctx: typer.Context,
+    profile: Optional[str] = typer.Option(
+        None,
+        "--profile",
+        help="Profile name to use (default: 'default')",
+    ),
     environment: Optional[str] = typer.Option(
         None,
         "--env",
@@ -474,6 +481,30 @@ def deploy(
                                 style="red",
                             )
 
+        # --- Profile Support: Load market-specific .env file from profile ---
+        from snapshotter_cli.utils.profile import (
+            ProfileConfig,
+            ensure_profile_structure,
+            get_active_profile,
+            get_profile_env_path,
+        )
+
+        # Ensure profile structure exists (handles migration)
+        ensure_profile_structure()
+
+        # Determine active profile
+        active_profile = get_active_profile(profile)
+
+        if active_profile != "default":
+            console.print(
+                f"🏷️ Using profile: [bold magenta]{active_profile}[/bold magenta]",
+                style="dim",
+            )
+
+        # Update last used profile
+        profile_config = ProfileConfig()
+        profile_config.set_last_used_profile(active_profile)
+
         # --- Load market-specific namespaced .env file (for first selected market) ---
         namespaced_env_content: Optional[Dict[str, str]] = None
         norm_pl_chain_name_for_file = selected_powerloom_chain_name_upper.lower()
@@ -486,31 +517,50 @@ def deploy(
             norm_source_chain_name_for_file = market_obj.sourceChain.lower().replace(
                 "-", "_"
             )
-            potential_config_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+
+            # Get profile-specific env file path
+            config_file_path = get_profile_env_path(
+                active_profile,
                 norm_pl_chain_name_for_file,
                 norm_market_name_for_file,
                 norm_source_chain_name_for_file,
             )
 
-            # First check in config directory
-            config_file_path = CONFIG_DIR / potential_config_filename
             if config_file_path.exists():
                 console.print(
-                    f"✓ Found namespaced .env for market {first_market_name}: {config_file_path}",
+                    f"✓ Found profile config for market {first_market_name}: {config_file_path}",
                     style="dim",
                 )
                 namespaced_env_content = parse_env_file_vars(str(config_file_path))
             else:
-                # If not found in config directory, check current directory for backward compatibility
-                cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
-                if cwd_config_file_path.exists():
+                # Fallback to legacy locations for backward compatibility
+                potential_config_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+                    norm_pl_chain_name_for_file,
+                    norm_market_name_for_file,
+                    norm_source_chain_name_for_file,
+                )
+
+                # Check old CONFIG_DIR location
+                legacy_config_path = CONFIG_DIR / potential_config_filename
+                if legacy_config_path.exists():
                     console.print(
-                        f"⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to {CONFIG_DIR}",
+                        f"⚠️ Found legacy env file. Consider running 'profile list' to migrate.",
                         style="yellow",
                     )
                     namespaced_env_content = parse_env_file_vars(
-                        str(cwd_config_file_path)
+                        str(legacy_config_path)
                     )
+                else:
+                    # Check current directory for backward compatibility
+                    cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
+                    if cwd_config_file_path.exists():
+                        console.print(
+                            f"⚠️ Found legacy env file in current directory. Consider migrating to profiles.",
+                            style="yellow",
+                        )
+                        namespaced_env_content = parse_env_file_vars(
+                            str(cwd_config_file_path)
+                        )
 
         final_wallet_address = get_credential(
             "WALLET_HOLDER_ADDRESS",
@@ -745,40 +795,59 @@ def deploy(
                 style="green",
             )
 
-            # --- Load market-specific namespaced .env file ---
+            # --- Load market-specific namespaced .env file from profile ---
             market_namespaced_env_content: Optional[Dict[str, str]] = None
             norm_pl_chain_name_for_file = selected_powerloom_chain_name_upper.lower()
             norm_market_name_for_file = market_conf_obj.name.lower()
             norm_source_chain_name_for_file = (
                 market_conf_obj.sourceChain.lower().replace("-", "_")
             )
-            potential_config_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+
+            # Get profile-specific env file path
+            config_file_path = get_profile_env_path(
+                active_profile,
                 norm_pl_chain_name_for_file,
                 norm_market_name_for_file,
                 norm_source_chain_name_for_file,
             )
 
-            # First check in config directory
-            config_file_path = CONFIG_DIR / potential_config_filename
             if config_file_path.exists():
                 console.print(
-                    f"✓ Found namespaced .env for market {market_conf_obj.name}: {config_file_path}",
+                    f"✓ Found profile config for market {market_conf_obj.name}: {config_file_path}",
                     style="dim",
                 )
                 market_namespaced_env_content = parse_env_file_vars(
                     str(config_file_path)
                 )
             else:
-                # Check current directory for backward compatibility
-                cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
-                if cwd_config_file_path.exists():
+                # Fallback to legacy locations for backward compatibility
+                potential_config_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
+                    norm_pl_chain_name_for_file,
+                    norm_market_name_for_file,
+                    norm_source_chain_name_for_file,
+                )
+
+                # Check old CONFIG_DIR location
+                legacy_config_path = CONFIG_DIR / potential_config_filename
+                if legacy_config_path.exists():
                     console.print(
-                        f"⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to {CONFIG_DIR}",
+                        f"⚠️ Using legacy env file for market {market_conf_obj.name}. Consider migrating to profiles.",
                         style="yellow",
                     )
                     market_namespaced_env_content = parse_env_file_vars(
-                        str(cwd_config_file_path)
+                        str(legacy_config_path)
                     )
+                else:
+                    # Check current directory for backward compatibility
+                    cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
+                    if cwd_config_file_path.exists():
+                        console.print(
+                            f"⚠️ Found legacy env file in current directory for market {market_conf_obj.name}.",
+                            style="yellow",
+                        )
+                        market_namespaced_env_content = parse_env_file_vars(
+                            str(cwd_config_file_path)
+                        )
 
             # --- Resolve Signer Credentials & Source RPC URL FOR THIS MARKET ---
             # Uses the loaded market_namespaced_env_content for this specific market
