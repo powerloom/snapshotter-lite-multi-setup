@@ -300,7 +300,8 @@ def deploy_snapshotter_instance(
 
     # Add missing vars from multi_clone.py, using defaults or loading from pre-config/env
     # For simplicity, pre-loaded 'final_env_vars' from a namespaced .env file can override these defaults.
-    final_env_vars.setdefault("LOCAL_COLLECTOR_PORT", "50051")
+    # Note: LOCAL_COLLECTOR_PORT is not set here to avoid port conflicts in multi-instance deployments
+    # The collector_test.sh will handle port allocation for the first instance
     final_env_vars.setdefault(
         "MAX_STREAM_POOL_SIZE", "2"
     )  # Default from multi_clone, may need adjustment based on CPU as in multi_clone

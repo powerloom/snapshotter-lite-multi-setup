@@ -936,6 +936,7 @@ def deploy(
                     f"{base_args} --data-market-contract-number {data_market_number}"
                 )
 
+                
                 # Add appropriate flag based on chain and market
                 if selected_powerloom_chain_name_upper == "DEVNET" and market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
                     build_sh_args_for_instance = f"--bds-dsv-devnet {base_args}"
