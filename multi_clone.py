@@ -12,6 +12,7 @@ from threading import Semaphore
 import psutil
 from dotenv import load_dotenv
 from web3 import Web3
+import signal
 
 OUTPUT_WORTHY_ENV_VARS = [
     "SOURCE_RPC_URL",
@@ -335,6 +336,80 @@ def _deploy_single_node_impl(
 
     except Exception as e:
         return (slot_id, "error", f"Failed to deploy node {slot_id}: {str(e)}")
+
+
+def find_and_kill_noe1_listen_processes():
+   """
+   Find and kill all running noe1_listen.py processes using ps aux | grep method
+   """
+   try:
+       # Find running noe1_listen.py processes (excluding grep itself)
+       result = subprocess.run(
+           ['ps', 'aux'],
+           capture_output=True,
+           text=True,
+           check=True
+       )
+
+       # Filter for noe1_listen.py processes
+       processes = []
+       for line in result.stdout.strip().split('\n'):
+           if 'noe1_listen.py' in line and 'grep' not in line:
+               parts = line.split()
+               if len(parts) >= 2:
+                   try:
+                       pid = int(parts[1])
+                       processes.append(pid)
+                   except ValueError:
+                       continue
+
+       if processes:
+           print(f"   🔍 Found {len(processes)} running noe1_listen.py process(es): {processes}")
+
+           # Kill each process
+           for pid in processes:
+               try:
+                   os.kill(pid, signal.SIGTERM)
+                   print(f"   🛑 Terminated process {pid}")
+               except OSError as e:
+                   print(f"   ⚠️  Failed to terminate process {pid}: {e}")
+
+                   # Try SIGKILL if SIGTERM failed
+                   try:
+                       os.kill(pid, signal.SIGKILL)
+                       print(f"   💀 Force killed process {pid}")
+                   except OSError:
+                       print(f"   ❌ Failed to kill process {pid}")
+       else:
+           print("   ℹ️  No running noe1_listen.py processes found")
+
+   except subprocess.CalledProcessError as e:
+       print(f"   ❌ Error finding processes: {e}")
+   except Exception as e:
+       print(f"   ❌ Unexpected error in process termination: {e}")
+
+
+def restart_listener():
+   """
+   Run the noe1_run_listen.sh script to restart the listener
+   """
+   try:
+       print("   🚀 Starting listener restart script...")
+       result = subprocess.run(
+           ['./noe1_run_listen.sh'],
+           cwd=os.getcwd(),
+           capture_output=False
+       )
+
+       if result.returncode == 0:
+           print("   ✅ Listener restart script started successfully")
+       else:
+           print(f"   ⚠️  Listener restart script exited with code: {result.returncode}")
+
+   except FileNotFoundError:
+       print("   ❌ Error: noe1_run_listen.sh not found")
+   except Exception as e:
+       print(f"   ❌ Error running restart script: {e}")
 
 
 def run_snapshotter_lite_v2(
@@ -721,6 +796,17 @@ def run_snapshotter_lite_v2(
                 print(
                     f"      Slots: {sorted(list(failed_slots))[:10]}{' ...' if len(failed_slots) > 10 else ''}"
                 )
+                print("   🔄 Terminating current process and restarting listener...")
+                # Find and kill running processes
+                find_and_kill_noe1_listen_processes()
+
+                # Wait a moment for processes to terminate
+                time.sleep(2)
+
+                # Restart the listener
+                restart_listener()
+                # Terminate current process
+                sys.exit(1)
 
             if screens_without_containers:
                 print(
@@ -900,8 +986,21 @@ def main(
         deploy_slots = [latest_slot]
         print(f"🟢 Latest-only mode: Deploying only the latest slot {latest_slot}")
     elif non_interactive:
-        deploy_slots = slot_ids
-        print("🟢 Non-interactive mode: Deploying all slots")
+        # Non-interactive selection from CLI arguments:
+        # - If --slots provided: use those specific slots
+        # - Else if --all_slots y (or default y when -y): deploy all
+        # - Else (no slots and all_slots not y): default to all
+        selected_slots_arg = os.getenv("_MC_SELECTED_SLOTS", "")
+        all_slots_choice = os.getenv("_MC_ALL_SLOTS", "n")
+        if selected_slots_arg:
+            try:
+                deploy_slots = [int(slot_id.strip()) for slot_id in selected_slots_arg.split(',') if slot_id.strip()]
+            except ValueError:
+                print("❌ Invalid --slots value. Please provide a comma-separated list of integers.")
+                sys.exit(1)
+        elif all_slots_choice.lower() == 'y' or not all_slots_choice:
+            deploy_slots = slot_ids
+            print("🟢 Non-interactive mode: Deploying all slots")
     else:
         deploy_all_slots = input("☑️ Do you want to deploy all slots? (y/n) ")
         if deploy_all_slots.lower() == "y":
@@ -1099,6 +1198,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Deploy all nodes without prompting for confirmation",
     )
+    parser.add_argument('--all_slots', choices=['y', 'n'],
+                        help='Choose to deploy all slots or pick slots (y: all slots, n: choose slots)')
+    parser.add_argument('--slots', type=str,
+                        help='Comma-separated list of slot IDs to deploy (required if -deploy_slots is n)')
+    
     parser.add_argument(
         "--latest-only",
         action="store_true",
@@ -1120,7 +1224,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable parallel deployment and use sequential mode (backward compatibility)",
     )
-
     args = parser.parse_args()
 
     data_market = args.data_market if args.data_market else "0"
@@ -1129,6 +1232,14 @@ if __name__ == "__main__":
     if args.parallel_workers is not None:
         if args.parallel_workers < 1 or args.parallel_workers > 8:
             parser.error("--parallel-workers must be between 1 and 8")
+    # Bridge argparse values to main via environment variables to avoid signature drift
+    if args.yes and args.all_slots is None:
+        os.environ["_MC_ALL_SLOTS"] = "y"
+    elif args.all_slots is not None:
+        os.environ["_MC_ALL_SLOTS"] = args.all_slots
+
+    if args.slots:
+        os.environ["_MC_SELECTED_SLOTS"] = args.slots
 
     main(
         data_market_choice=data_market,
