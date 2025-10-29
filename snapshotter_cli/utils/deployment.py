@@ -292,7 +292,7 @@ def deploy_snapshotter_instance(
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO"] = str(market_config.compute.repo)
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = market_config.compute.branch
 
-    final_env_vars["POWERLOOM_CHAIN"] = pl_chain_name_upper
+    final_env_vars["POWERLOOM_CHAIN"] = norm_pl_chain_name
     final_env_vars["NAMESPACE"] = market_name_upper
     final_env_vars["SOURCE_CHAIN"] = source_chain_prefix_upper
     final_env_vars["FULL_NAMESPACE"] = env_file_suffix
