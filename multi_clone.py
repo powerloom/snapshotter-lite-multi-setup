@@ -900,8 +900,21 @@ def main(
         deploy_slots = [latest_slot]
         print(f"🟢 Latest-only mode: Deploying only the latest slot {latest_slot}")
     elif non_interactive:
-        deploy_slots = slot_ids
-        print("🟢 Non-interactive mode: Deploying all slots")
+        # Non-interactive selection from CLI arguments:
+        # - If --slots provided: use those specific slots
+        # - Else if --all_slots y (or default y when -y): deploy all
+        # - Else (no slots and all_slots not y): default to all
+        selected_slots_arg = os.getenv("_MC_SELECTED_SLOTS", "")
+        all_slots_choice = os.getenv("_MC_ALL_SLOTS", "n")
+        if selected_slots_arg:
+            try:
+                deploy_slots = [int(slot_id.strip()) for slot_id in selected_slots_arg.split(',') if slot_id.strip()]
+            except ValueError:
+                print("❌ Invalid --slots value. Please provide a comma-separated list of integers.")
+                sys.exit(1)
+        elif all_slots_choice.lower() == 'y' or not all_slots_choice:
+            deploy_slots = slot_ids
+            print("🟢 Non-interactive mode: Deploying all slots")
     else:
         deploy_all_slots = input("☑️ Do you want to deploy all slots? (y/n) ")
         if deploy_all_slots.lower() == "y":
@@ -1099,6 +1112,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Deploy all nodes without prompting for confirmation",
     )
+    parser.add_argument('--all_slots', choices=['y', 'n'],
+                        help='Choose to deploy all slots or pick slots (y: all slots, n: choose slots)')
+    parser.add_argument('--slots', type=str,
+                        help='Comma-separated list of slot IDs to deploy (required if -deploy_slots is n)')
+    
     parser.add_argument(
         "--latest-only",
         action="store_true",
@@ -1120,7 +1138,6 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable parallel deployment and use sequential mode (backward compatibility)",
     )
-
     args = parser.parse_args()
 
     data_market = args.data_market if args.data_market else "0"
@@ -1129,6 +1146,14 @@ if __name__ == "__main__":
     if args.parallel_workers is not None:
         if args.parallel_workers < 1 or args.parallel_workers > 8:
             parser.error("--parallel-workers must be between 1 and 8")
+    # Bridge argparse values to main via environment variables to avoid signature drift
+    if args.yes and args.all_slots is None:
+        os.environ["_MC_ALL_SLOTS"] = "y"
+    elif args.all_slots is not None:
+        os.environ["_MC_ALL_SLOTS"] = args.all_slots
+
+    if args.slots:
+        os.environ["_MC_SELECTED_SLOTS"] = args.slots
 
     main(
         data_market_choice=data_market,
