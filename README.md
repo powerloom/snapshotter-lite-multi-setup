@@ -541,6 +541,39 @@ Sleeping for 30 seconds to allow docker containers to spin up...
 Sleeping for 10 seconds to allow docker containers to spin up...
 ```
 
+### BDS DSV Devnet Deployment
+
+For BDS DSV devnet deployments, the CLI automatically detects and applies BDS-specific configurations:
+
+```bash
+# Configure BDS DSV devnet (auto-selects BDS_DEVNET_ALPHA_UNISWAPV3)
+powerloom-snapshotter-cli configure --env devnet
+
+# Deploy with BDS optimizations automatically applied
+powerloom-snapshotter-cli deploy
+
+# The CLI automatically:
+# ✅ Uses --bds-dsv-devnet flag
+# ✅ Sets DEV_MODE=true, OVERRIDE_DEFAULTS=true, LOCAL_COLLECTOR_P2P_PORT=8001
+# ✅ Uses feat/bds_lite_dsv_rollout branch for lite node
+# ✅ Clones local collector with feat/gossipsub-submissions branch
+# ✅ Auto-selects BDS_DEVNET_ALPHA_UNISWAPV3 datamarket
+```
+
+**BDS DSV Devnet Features:**
+- **Zero Configuration**: No manual setup required for BDS deployments
+- **Auto-Selection**: Automatically selects BDS_DEVNET_ALPHA_UNISWAPV3 datamarket
+- **Optimized Defaults**: Pre-configured environment variables for best performance
+- **Proper Branches**: Uses correct branches for both lite node and local collector
+- **Enhanced Networking**: Multi-bootstrap support and proper P2P configuration
+
+When deploying BDS DSV devnet slots, you'll see output like:
+```
+🚀 BDS DSV Devnet market detected - using branch: feat/bds_lite_dsv_rollout
+✅ Local collector repo cloned and checked out to feat/gossipsub-submissions branch
+🔩 Deploying slot xxx1 for market BDS_DEVNET_ALPHA_UNISWAPV3
+```
+
 ## 3\. Monitoring\, diagnostics and cleanup
 
 The multi setup comes bundled with a diagnostic and cleanup script.
