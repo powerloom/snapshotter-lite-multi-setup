@@ -719,7 +719,7 @@ def run_snapshotter_lite_v2(
             if failed_slots:
                 print(f"   ❌ Actually failed deployments: {len(failed_slots)}")
                 print(
-                    f"      Slots: {sorted(list(failed_slots))[:10]}{' ...' if len(failed_slots) > 10 else ''}"
+                    f"      Slots: {sorted(list(failed_slots))}"
                 )
 
             if screens_without_containers:
