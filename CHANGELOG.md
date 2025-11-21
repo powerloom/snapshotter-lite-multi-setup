@@ -5,6 +5,16 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **--slots flag** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
+- **check_slots.py script** - Monitor deployment health by comparing owned slots vs running containers with detailed statistics
+
+### Fixed
+- **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
+- **--slots newline handling** - Slot lists spanning multiple lines now parse correctly
+
 ## [v0.2.0] - 2025-10-27
 
 ### Added
