@@ -1150,13 +1150,16 @@ if __name__ == "__main__":
     slot_list = None
     if args.slots:
         try:
-            slot_list = [int(slot.strip()) for slot in args.slots.split(",")]
+            # Replace newlines and other whitespace with commas, then split by comma
+            normalized = args.slots.replace("\n", ",").replace("\r", ",")
+            # Split by comma and filter out empty strings
+            slot_list = [int(slot.strip()) for slot in normalized.split(",") if slot.strip()]
             if not slot_list:
                 parser.error("--slots cannot be empty")
             if len(slot_list) != len(set(slot_list)):
                 parser.error("--slots contains duplicate slot IDs")
-        except ValueError:
-            parser.error("--slots must be a comma-separated list of integers (e.g., 1234,5678,9012)")
+        except ValueError as e:
+            parser.error(f"--slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}")
 
     # Validate conflicting options
     if slot_list and args.latest_only:
