@@ -13,7 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
-- **--slots newline handling** - Slot lists spanning multiple lines now parse correctly
 
 ## [v0.2.0] - 2025-10-27
 
