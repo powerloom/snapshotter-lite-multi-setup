@@ -376,6 +376,7 @@ Available flags:
 - `--data-market {1,2}`: Choose the data market (1: AAVEV3, 2: UNISWAPV2)
 - `-y, --yes`: Deploy all nodes without prompting for confirmation
 - `--latest-only`: Deploy only the latest (highest) slot
+- `--slots SLOT_IDS`: Deploy specific slots (comma-separated list, e.g., `--slots 1234,5678,9012`)
 - `--use-env-connection-refresh-interval`: Use CONNECTION_REFRESH_INTERVAL_SEC from environment instead of calculating based on slots
 - `--parallel-workers N`: Number of parallel workers for deployment (1-8, default: auto-detect based on CPU cores)
 - `--sequential`: Disable parallel deployment and use sequential mode (backward compatibility)
@@ -419,6 +420,12 @@ uv run python multi_clone.py --sequential -y
 # Deploy only the latest slot
 uv run python multi_clone.py --latest-only
 
+# Deploy specific slots (comma-separated list)
+uv run python multi_clone.py --slots 1234,5678,9012
+
+# Deploy specific slots with custom parallel workers
+uv run python multi_clone.py --slots 1234,5678,9012,4567,8901 --parallel-workers 4
+
 # Use environment variable set at shell prompt for connection refresh interval
 CONNECTION_REFRESH_INTERVAL_SEC=300 uv run python multi_clone.py --use-env-connection-refresh-interval
 
@@ -446,7 +453,34 @@ uv run python multi_clone.py --use-env-connection-refresh-interval
 
 When you run the deploy script without any flags, it will ask you if you want to deploy all nodes? If you want to [Deploy a subset of slots](#221-deploy-a-subset-of-slots) then press `n` else you want to [Deploy all slots](#222-deploy-all-slots) press `y`.
 
+Alternatively, you can use the `--slots` flag to [Deploy specific slots](#2211-deploy-specific-slots-using-slots-flag) directly from the command line.
+
 #### 2.2.1 Deploy a subset of slots
+
+##### 2.2.1.1 Deploy specific slots using --slots flag
+
+The `--slots` flag allows you to deploy specific slots directly from the command line without interactive prompts:
+
+```bash
+# Deploy specific slots by ID
+uv run python multi_clone.py --slots 1234,5678,9012
+
+# Combine with other flags
+uv run python multi_clone.py --slots 1234,5678,9012 --parallel-workers 4
+```
+
+**Key features:**
+- Non-interactive: No prompts, just specify the slots you want
+- Validation: The script validates that all specified slots are owned by your wallet
+- Error handling: Clear error messages if any slot IDs are invalid or duplicate
+- Flexible: Can be combined with other flags like `--parallel-workers`, `--sequential`, etc.
+
+**Notes:**
+- Cannot be used with `--yes` (deploy all) or `--latest-only` flags
+- Slot IDs must be comma-separated with no spaces (or spaces will be stripped)
+- The script will verify that all specified slots exist in your wallet before deployment
+
+##### 2.2.1.2 Deploy a subset using interactive mode
 
 Enter `n` when asked if you want to deploy all slots. Proceed with the begin and end slot IDs for your deployment.
 
