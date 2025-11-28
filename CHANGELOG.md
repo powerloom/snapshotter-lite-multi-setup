@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
+- **Profile set-default to "default"** - Fixed bug where `profile set-default default` didn't properly switch to the default profile in shell mode
 
 ## [v0.2.0] - 2025-10-27
 
