@@ -23,6 +23,13 @@ powerloom-snapshotter> configure
 powerloom-snapshotter> deploy
 powerloom-snapshotter> list
 powerloom-snapshotter> status
+powerloom-snapshotter> check
+
+# Deploy specific slots (comma-separated)
+powerloom-snapshotter-cli deploy --env mainnet --slots 1234,5678,9012
+
+# Check slot status
+powerloom-snapshotter-cli check --env mainnet --profile default
 
 # Or with a specific profile:
 POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
@@ -127,6 +134,8 @@ powerloom-snapshotter-cli profile import updates.json --name wallet-alice --merg
 - **📋 Integrated Changelog**: View latest changes on shell startup, full changelog with `changelog` command
 - **Easy Configuration**: Set up credentials once for each chain/market combination
 - **Simple Deployment**: Deploy multiple nodes with a single command
+- **🎯 Targeted Deployment**: Deploy specific slots with `--slots 1234,5678,9012`
+- **📊 Slot Status Checker**: Compare owned slots vs running containers with `check` command
 - **Instance Management**: Deploy and monitor snapshotter nodes easily
 - **Cross-Platform**: Pre-built binaries for Linux (x86_64, ARM64) and macOS (ARM64)
 - **Native ARM64 Builds**: Uses GitHub's native ARM64 runners for 4x faster builds
@@ -155,11 +164,11 @@ powerloom-snapshotter-cli profile import updates.json --name wallet-alice --merg
       - [2.2.1 Deploy a subset of slots](#221-deploy-a-subset-of-slots)
       - [2.2.2 Deploy all slots](#222-deploy-all-slots)
   - [3. Monitoring, diagnostics and cleanup](#3-monitoring-diagnostics-and-cleanup)
-    - [3.0 Check Slot Status](#30-check-slot-status)
     - [3.1 Cleanup\[optional\]](#31-cleanupoptional)
       - [3.1.1 Stop and remove all powerloom containers](#311-stop-and-remove-all-powerloom-containers)
       - [3.1.2 Remove all Docker subnets assigned to the snapshotter-lite containers](#312-remove-all-docker-subnets-assigned-to-the-snapshotter-lite-containers)
       - [3.1.3 Cleanup stale images and networks and cache](#313-cleanup-stale-images-and-networks-and-cache)
+    - [3.2 Check Slot Status](#32-check-slot-status)
   - [4. Case studies](#4-case-studies)
     - [4.1 Deploy subsets of slots with different configs](#41-deploy-subsets-of-slots-with-different-configs)
     - [4.2 Running Slots from Different Wallets on a Single VPS](#42-running-slots-from-different-wallets-on-a-single-vps)
@@ -578,60 +587,6 @@ Sleeping for 10 seconds to allow docker containers to spin up...
 
 ## 3\. Monitoring\, diagnostics and cleanup
 
-### 3.0 Check Slot Status
-
-You can quickly check which slots are running and which are not using the slot status checker:
-
-```bash
-uv run python check_slots.py
-```
-
-This script will:
-- Connect to the Powerloom protocol to fetch all slots owned by your wallet
-- Check which Docker containers are currently running
-- Compare the two lists and show you detailed status
-- Identify any potential issues (containers without screens, etc.)
-
-**Example output:**
-
-```
-🔍 Checking slot status...
-
-✅ Connected to Powerloom RPC (block: 12345678)
-📋 Fetching slots for wallet: 0x1234...
-✅ Found 50 total slots
-
-🐳 Checking running Docker containers...
-📺 Checking screen sessions...
-
-================================================================================
-📊 SLOT STATUS SUMMARY
-================================================================================
-
-✅ Running slots: 48
-   1234, 1235, 1236, 1237, 1238, 1239, 1240, 1241, 1242, 1243
-   1244, 1245, ...
-
-❌ Not running slots: 2
-   1250, 1251
-
-================================================================================
-Total slots owned: 50
-Currently running: 48 (96.0%)
-Not running: 2 (4.0%)
-================================================================================
-```
-
-**Exit codes:**
-- `0`: All slots are running successfully
-- `1`: Some slots are not running (useful for automation/monitoring)
-
-This is particularly useful for:
-- Monitoring your deployment health
-- Identifying which specific slots need attention
-- Integrating with monitoring systems (via exit codes)
-- Quick status checks without manual container inspection
-
 The multi setup comes bundled with a diagnostic and cleanup script.
 
 ``` bash
@@ -766,6 +721,73 @@ Total reclaimed space: 1.614GB
 
 ✅ Diagnostic check complete
 ```
+
+### 3.2 Check Slot Status
+
+You can quickly check which slots are running and which are not using either the CLI command or standalone script:
+
+**Using CLI (Recommended):**
+```bash
+# Check using wallet from profile
+snapshotter check --env mainnet --profile wallet-alice
+
+# Check using wallet address directly
+snapshotter check --env mainnet --wallet 0x123...
+
+# Filter by market
+snapshotter check --env devnet --market UNISWAPV2 --profile default
+```
+
+**Using Standalone Script:**
+```bash
+uv run python check_slots.py
+```
+
+These tools will:
+- Connect to the Powerloom protocol to fetch all slots owned by your wallet
+- Check which Docker containers are currently running
+- Compare the two lists and show you detailed status
+- Identify any potential issues (containers without screens, etc.)
+
+**Example output:**
+
+```
+🔍 Checking slot status...
+
+✅ Connected to Powerloom RPC (block: 12345678)
+📋 Fetching slots for wallet: 0x1234...
+✅ Found 50 total slots
+
+🐳 Checking running Docker containers...
+📺 Checking screen sessions...
+
+================================================================================
+📊 SLOT STATUS SUMMARY
+================================================================================
+
+✅ Running slots: 48
+   1234, 1235, 1236, 1237, 1238, 1239, 1240, 1241, 1242, 1243
+   1244, 1245, ...
+
+❌ Not running slots: 2
+   1250, 1251
+
+================================================================================
+Total slots owned: 50
+Currently running: 48 (96.0%)
+Not running: 2 (4.0%)
+================================================================================
+```
+
+**Exit codes:**
+- `0`: All slots are running successfully
+- `1`: Some slots are not running (useful for automation/monitoring)
+
+This is particularly useful for:
+- Monitoring your deployment health
+- Identifying which specific slots need attention
+- Integrating with monitoring systems (via exit codes)
+- Quick status checks without manual container inspection
 
 If you encounter any issues, please contact us on [discord](https://discord.com/invite/powerloom).
 
