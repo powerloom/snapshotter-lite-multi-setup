@@ -168,16 +168,16 @@ def main():
     containers_without_screens = running_slot_ids - screen_slots
     screens_without_containers = screen_slots - running_slot_ids
 
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("📊 SLOT STATUS SUMMARY")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
     # Running slots
     if running_slot_ids:
         print(f"✅ Running slots: {len(running_slot_ids)}")
         sorted_running = sorted(list(running_slot_ids))
         for i in range(0, len(sorted_running), 10):
-            batch = sorted_running[i:i+10]
+            batch = sorted_running[i : i + 10]
             print(f"   {', '.join(str(slot) for slot in batch)}")
         print()
 
@@ -186,7 +186,7 @@ def main():
         print(f"❌ Not running slots: {len(not_running)}")
         sorted_not_running = sorted(list(not_running))
         for i in range(0, len(sorted_not_running), 10):
-            batch = sorted_not_running[i:i+10]
+            batch = sorted_not_running[i : i + 10]
             print(f"   {', '.join(str(slot) for slot in batch)}")
         print()
     else:
@@ -197,7 +197,7 @@ def main():
         print(f"⚠️  Unknown running slots (not in wallet): {len(unknown_running)}")
         sorted_unknown = sorted(list(unknown_running))
         for i in range(0, len(sorted_unknown), 10):
-            batch = sorted_unknown[i:i+10]
+            batch = sorted_unknown[i : i + 10]
             print(f"   {', '.join(str(slot) for slot in batch)}")
         print()
 
@@ -206,26 +206,34 @@ def main():
         print("⚠️  POTENTIAL ISSUES:")
 
         if containers_without_screens:
-            print(f"   • Containers without screen sessions: {len(containers_without_screens)}")
+            print(
+                f"   • Containers without screen sessions: {len(containers_without_screens)}"
+            )
             sorted_cws = sorted(list(containers_without_screens))
             for i in range(0, len(sorted_cws), 10):
-                batch = sorted_cws[i:i+10]
+                batch = sorted_cws[i : i + 10]
                 print(f"     {', '.join(str(slot) for slot in batch)}")
 
         if screens_without_containers:
-            print(f"   • Screen sessions without containers: {len(screens_without_containers)}")
+            print(
+                f"   • Screen sessions without containers: {len(screens_without_containers)}"
+            )
             sorted_swc = sorted(list(screens_without_containers))
             for i in range(0, len(sorted_swc), 10):
-                batch = sorted_swc[i:i+10]
+                batch = sorted_swc[i : i + 10]
                 print(f"     {', '.join(str(slot) for slot in batch)}")
         print()
 
     # Statistics
-    print("="*80)
+    print("=" * 80)
     print(f"Total slots owned: {len(owned_slot_ids)}")
-    print(f"Currently running: {len(running_slot_ids)} ({len(running_slot_ids)/len(owned_slot_ids)*100:.1f}%)")
-    print(f"Not running: {len(not_running)} ({len(not_running)/len(owned_slot_ids)*100:.1f}%)")
-    print("="*80)
+    print(
+        f"Currently running: {len(running_slot_ids)} ({len(running_slot_ids)/len(owned_slot_ids)*100:.1f}%)"
+    )
+    print(
+        f"Not running: {len(not_running)} ({len(not_running)/len(owned_slot_ids)*100:.1f}%)"
+    )
+    print("=" * 80)
 
     # Exit code based on status
     if not_running:
@@ -243,5 +251,6 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n❌ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)

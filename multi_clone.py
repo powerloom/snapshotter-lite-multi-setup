@@ -718,9 +718,7 @@ def run_snapshotter_lite_v2(
 
             if failed_slots:
                 print(f"   ❌ Actually failed deployments: {len(failed_slots)}")
-                print(
-                    f"      Slots: {sorted(list(failed_slots))}"
-                )
+                print(f"      Slots: {sorted(list(failed_slots))}")
 
             if screens_without_containers:
                 print(
@@ -904,7 +902,9 @@ def main(
         # Deploy specific slots from provided list
         invalid_slots = [slot for slot in slot_list if slot not in slot_ids]
         if invalid_slots:
-            print(f"❌ Error: The following slots are not owned by this wallet: {invalid_slots}")
+            print(
+                f"❌ Error: The following slots are not owned by this wallet: {invalid_slots}"
+            )
             print(f"Available slots: {slot_ids}")
             sys.exit(1)
         deploy_slots = slot_list
@@ -1153,19 +1153,25 @@ if __name__ == "__main__":
             # Replace newlines and other whitespace with commas, then split by comma
             normalized = args.slots.replace("\n", ",").replace("\r", ",")
             # Split by comma and filter out empty strings
-            slot_list = [int(slot.strip()) for slot in normalized.split(",") if slot.strip()]
+            slot_list = [
+                int(slot.strip()) for slot in normalized.split(",") if slot.strip()
+            ]
             if not slot_list:
                 parser.error("--slots cannot be empty")
             if len(slot_list) != len(set(slot_list)):
                 parser.error("--slots contains duplicate slot IDs")
         except ValueError as e:
-            parser.error(f"--slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}")
+            parser.error(
+                f"--slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}"
+            )
 
     # Validate conflicting options
     if slot_list and args.latest_only:
         parser.error("--slots and --latest-only cannot be used together")
     if slot_list and args.yes:
-        parser.error("--slots and --yes cannot be used together (--slots already specifies which slots to deploy)")
+        parser.error(
+            "--slots and --yes cannot be used together (--slots already specifies which slots to deploy)"
+        )
 
     main(
         data_market_choice=data_market,

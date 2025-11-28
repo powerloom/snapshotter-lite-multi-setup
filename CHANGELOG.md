@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **--slots flag** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
+- **CLI `--slots` flag** - Deploy specific slots via comma-separated list in CLI (e.g., `snapshotter deploy --slots 1234,5678,9012`)
+- **CLI `check` command** - New command to compare wallet-owned slots against running containers, showing running/not-running status, detecting orphaned sessions, and providing deployment hints
+- **--slots flag (multi_clone.py)** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
 - **check_slots.py script** - Monitor deployment health by comparing owned slots vs running containers with detailed statistics
 
 ### Fixed
