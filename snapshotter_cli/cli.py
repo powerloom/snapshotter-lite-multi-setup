@@ -247,7 +247,12 @@ def deploy(
         help="Data markets to deploy. If --env is provided but this is not, you will be prompted.",
     ),
     slots: Optional[List[int]] = typer.Option(
-        None, "--slot", "-s", help="Specific slot IDs to deploy."
+        None, "--slot", "-s", help="Specific slot IDs to deploy (can be repeated)."
+    ),
+    slots_str: Optional[str] = typer.Option(
+        None,
+        "--slots",
+        help="Comma-separated list of slot IDs to deploy (e.g., --slots 1234,5678,9012).",
     ),
     wallet_address_opt: Optional[str] = typer.Option(
         None, "--wallet", "-w", help="Wallet address (0x...) holding the slots."
@@ -268,6 +273,47 @@ def deploy(
         )
         raise typer.Exit(1)
     console.print("🐳 Docker daemon is running.", style="green")
+
+    # --- Parse --slots string and merge with --slot list ---
+    parsed_slots_from_str: List[int] = []
+    if slots_str:
+        try:
+            # Replace newlines and other whitespace with commas, then split
+            normalized = slots_str.replace("\n", ",").replace("\r", ",")
+            parsed_slots_from_str = [
+                int(slot.strip()) for slot in normalized.split(",") if slot.strip()
+            ]
+            if not parsed_slots_from_str:
+                console.print("❌ --slots cannot be empty.", style="bold red")
+                raise typer.Exit(1)
+            if len(parsed_slots_from_str) != len(set(parsed_slots_from_str)):
+                console.print(
+                    "❌ --slots contains duplicate slot IDs.", style="bold red"
+                )
+                raise typer.Exit(1)
+        except ValueError as e:
+            console.print(
+                f"❌ --slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}",
+                style="bold red",
+            )
+            raise typer.Exit(1)
+
+    # Merge --slot and --slots into a single list
+    combined_slots: Optional[List[int]] = None
+    if slots and parsed_slots_from_str:
+        # Both provided - merge and deduplicate while preserving order
+        combined_slots = list(dict.fromkeys(list(slots) + parsed_slots_from_str))
+        console.print(
+            f"ℹ️ Combined slots from --slot and --slots: {combined_slots}",
+            style="dim",
+        )
+    elif slots:
+        combined_slots = list(slots)
+    elif parsed_slots_from_str:
+        combined_slots = parsed_slots_from_str
+
+    # Use combined_slots instead of slots from here on
+    slots = combined_slots
 
     cli_context: CLIContext = ctx.obj
     if not cli_context or not cli_context.chain_markets_map:
@@ -1203,6 +1249,367 @@ def status(
         )
 
     console.print(table)
+
+
+@app.command()
+def check(
+    ctx: typer.Context,
+    profile: Optional[str] = typer.Option(
+        None,
+        "--profile",
+        help="Profile name to use for loading wallet address (default: 'default')",
+    ),
+    environment: Optional[str] = typer.Option(
+        None,
+        "--env",
+        "-e",
+        help="Powerloom chain environment (e.g., mainnet, devnet). Required.",
+    ),
+    data_market: Optional[str] = typer.Option(
+        None, "--market", "-m", help="Filter by data market name."
+    ),
+    wallet_address_opt: Optional[str] = typer.Option(
+        None, "--wallet", "-w", help="Wallet address (0x...) holding the slots."
+    ),
+):
+    """
+    Check slot status: compare wallet-owned slots against running containers.
+
+    Shows which slots are running, not running, and identifies potential issues
+    like orphaned screen sessions or containers.
+    """
+    import re
+    import subprocess
+
+    cli_context: CLIContext = ctx.obj
+    if not cli_context or not cli_context.chain_markets_map:
+        console.print(
+            "❌ Could not load markets configuration. Cannot proceed.", style="bold red"
+        )
+        raise typer.Exit(1)
+
+    # --- Environment Selection ---
+    selected_powerloom_chain_name_upper: str
+    env_config: Optional[ChainMarketData] = None
+
+    if environment:
+        selected_powerloom_chain_name_upper = environment.upper()
+        env_config = cli_context.chain_markets_map.get(
+            selected_powerloom_chain_name_upper
+        )
+        if not env_config:
+            console.print(
+                f"❌ Invalid environment: {environment}. Valid: {', '.join(cli_context.available_environments)}",
+                style="bold red",
+            )
+            raise typer.Exit(1)
+    else:
+        # Sort chains to prioritize MAINNET first
+        all_powerloom_chains_from_config = sorted(
+            cli_context.markets_config,
+            key=lambda x: (
+                x.powerloomChain.name.upper() != "MAINNET",
+                x.powerloomChain.name.upper(),
+            ),
+        )
+        if not all_powerloom_chains_from_config:
+            console.print(
+                "❌ No Powerloom chains found in configuration.", style="bold red"
+            )
+            raise typer.Exit(1)
+
+        chain_list_display = "\n".join(
+            f"[bold green]{i+1}.[/] [cyan]{chain.powerloomChain.name.title()}[/]"
+            for i, chain in enumerate(all_powerloom_chains_from_config)
+        )
+        panel = Panel(
+            chain_list_display,
+            title="[bold blue]Select Powerloom Chain[/]",
+            border_style="blue",
+            padding=(1, 2),
+        )
+        console.print(panel)
+        selected_chain_input = typer.prompt(
+            "👉🏼 Select a Powerloom chain (number or name)", type=str
+        )
+
+        temp_chain_config_obj: Optional[PowerloomChainConfig] = None
+        if selected_chain_input.isdigit():
+            index = int(selected_chain_input) - 1
+            if 0 <= index < len(all_powerloom_chains_from_config):
+                temp_chain_config_obj = all_powerloom_chains_from_config[index]
+        else:
+            temp_chain_config_obj = next(
+                (
+                    cfg
+                    for cfg in all_powerloom_chains_from_config
+                    if cfg.powerloomChain.name.upper() == selected_chain_input.upper()
+                ),
+                None,
+            )
+
+        if not temp_chain_config_obj:
+            console.print(
+                f"❌ Invalid selection: '{selected_chain_input}'.", style="bold red"
+            )
+            raise typer.Exit(1)
+
+        selected_powerloom_chain_name_upper = (
+            temp_chain_config_obj.powerloomChain.name.upper()
+        )
+        env_config = cli_context.chain_markets_map.get(
+            selected_powerloom_chain_name_upper
+        )
+
+    if not env_config:
+        console.print(
+            f"❌ Could not find configuration for {selected_powerloom_chain_name_upper}.",
+            style="bold red",
+        )
+        raise typer.Exit(1)
+
+    console.print(
+        f"🔍 Checking slot status on [bold magenta]{selected_powerloom_chain_name_upper}[/bold magenta]...",
+        style="bold",
+    )
+
+    # --- Profile Support: Load wallet from profile ---
+    from snapshotter_cli.utils.profile import (
+        ensure_profile_structure,
+        get_active_profile,
+        get_profile_env_path,
+    )
+
+    ensure_profile_structure()
+    active_profile = get_active_profile(profile)
+
+    if active_profile != "default":
+        console.print(
+            f"🏷️ Using profile: [bold magenta]{active_profile}[/bold magenta]",
+            style="dim",
+        )
+
+    # Try to load wallet from profile env file
+    namespaced_env_content: Optional[Dict[str, str]] = None
+    norm_pl_chain_name_for_file = selected_powerloom_chain_name_upper.lower()
+
+    if env_config.markets:
+        first_market_name = next(iter(env_config.markets.keys()))
+        market_obj = env_config.markets[first_market_name]
+        norm_market_name_for_file = first_market_name.lower()
+        norm_source_chain_name_for_file = market_obj.sourceChain.lower().replace(
+            "-", "_"
+        )
+
+        config_file_path = get_profile_env_path(
+            active_profile,
+            norm_pl_chain_name_for_file,
+            norm_market_name_for_file,
+            norm_source_chain_name_for_file,
+        )
+
+        if config_file_path.exists():
+            namespaced_env_content = parse_env_file_vars(str(config_file_path))
+
+    final_wallet_address = get_credential(
+        "WALLET_HOLDER_ADDRESS",
+        selected_powerloom_chain_name_upper,
+        wallet_address_opt,
+        namespaced_env_content,
+    )
+
+    if not final_wallet_address:
+        console.print(
+            "❌ Wallet address required. Provide via --wallet or configure a profile.",
+            style="bold red",
+        )
+        raise typer.Exit(1)
+
+    console.print(f"📋 Wallet: [cyan]{final_wallet_address}[/cyan]", style="dim")
+
+    # --- Fetch owned slots ---
+    first_market = next(iter(env_config.markets.values()))
+    protocol_state_contract_address = first_market.powerloomProtocolStateContractAddress
+
+    console.print("⏳ Fetching owned slots from blockchain...", style="dim")
+    owned_slots = fetch_owned_slots(
+        wallet_address=final_wallet_address,
+        powerloom_chain_name=env_config.chain_config.name,
+        rpc_url=str(env_config.chain_config.rpcURL).rstrip("/"),
+        protocol_state_contract_address=protocol_state_contract_address,
+    )
+
+    if owned_slots is None:
+        console.print("❌ Failed to fetch owned slots.", style="bold red")
+        raise typer.Exit(1)
+
+    if not owned_slots:
+        console.print(
+            f"🤷 No slots found for wallet {final_wallet_address}.", style="yellow"
+        )
+        raise typer.Exit(0)
+
+    owned_slot_ids = set(owned_slots)
+    console.print(f"✅ Found [bold green]{len(owned_slots)}[/bold green] owned slots")
+
+    # --- Get running Docker containers ---
+    console.print("🐳 Checking running Docker containers...", style="dim")
+
+    # Build pattern for Docker container names
+    chain_lower = selected_powerloom_chain_name_upper.lower()
+    if data_market:
+        pattern = f"snapshotter-lite-v2-[0-9]+-{chain_lower}-{data_market.upper()}"
+    else:
+        pattern = f"snapshotter-lite-v2-[0-9]+-{chain_lower}"
+
+    result = subprocess.run(
+        f"docker ps --format '{{{{.Names}}}}' | grep -E '{pattern}'",
+        shell=True,
+        capture_output=True,
+        text=True,
+    )
+
+    running_slots: Dict[int, List[str]] = {}
+    if result.stdout:
+        for line in result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            match = re.search(r"snapshotter-lite-v2-(\d+)-", line)
+            if match:
+                slot_id = int(match.group(1))
+                if slot_id not in running_slots:
+                    running_slots[slot_id] = []
+                running_slots[slot_id].append(line)
+
+    running_slot_ids = set(running_slots.keys())
+
+    # --- Get screen sessions ---
+    console.print("📺 Checking screen sessions...", style="dim")
+
+    screen_result = subprocess.run(
+        "screen -ls | grep -i powerloom",
+        shell=True,
+        capture_output=True,
+        text=True,
+    )
+
+    screen_slots: set = set()
+    if screen_result.stdout:
+        for line in screen_result.stdout.strip().split("\n"):
+            if not line:
+                continue
+            # Match patterns like: powerloom-mainnet-v2-{slot_id} or pl_{chain}_{market}_{slot_id}
+            match = re.search(r"powerloom-[^-]+-[^-]+-(\d+)", line)
+            if not match:
+                match = re.search(r"pl_[^_]+_[^_]+_(\d+)", line)
+            if match:
+                screen_slots.add(int(match.group(1)))
+
+    # --- Analyze and display results ---
+    not_running = owned_slot_ids - running_slot_ids
+    unknown_running = running_slot_ids - owned_slot_ids
+    containers_without_screens = running_slot_ids - screen_slots
+    screens_without_containers = screen_slots - running_slot_ids
+
+    console.print("\n" + "=" * 80)
+    console.print(
+        "[bold blue]📊 SLOT STATUS SUMMARY[/bold blue]",
+        justify="center",
+    )
+    console.print("=" * 80 + "\n")
+
+    # Running slots
+    if running_slot_ids:
+        running_owned = running_slot_ids & owned_slot_ids
+        console.print(
+            f"[bold green]✅ Running slots:[/bold green] {len(running_owned)}"
+        )
+        sorted_running = sorted(list(running_owned))
+        for i in range(0, len(sorted_running), 10):
+            batch = sorted_running[i : i + 10]
+            console.print(f"   {', '.join(str(slot) for slot in batch)}", style="dim")
+        console.print()
+
+    # Not running slots
+    if not_running:
+        console.print(f"[bold red]❌ Not running slots:[/bold red] {len(not_running)}")
+        sorted_not_running = sorted(list(not_running))
+        for i in range(0, len(sorted_not_running), 10):
+            batch = sorted_not_running[i : i + 10]
+            console.print(f"   {', '.join(str(slot) for slot in batch)}", style="dim")
+        console.print()
+    else:
+        console.print("[bold green]✅ All slots are running![/bold green]\n")
+
+    # Unknown running slots (not owned by wallet)
+    if unknown_running:
+        console.print(
+            f"[bold yellow]⚠️ Unknown running slots (not in wallet):[/bold yellow] {len(unknown_running)}"
+        )
+        sorted_unknown = sorted(list(unknown_running))
+        for i in range(0, len(sorted_unknown), 10):
+            batch = sorted_unknown[i : i + 10]
+            console.print(f"   {', '.join(str(slot) for slot in batch)}", style="dim")
+        console.print()
+
+    # Potential issues
+    if containers_without_screens or screens_without_containers:
+        console.print("[bold yellow]⚠️ POTENTIAL ISSUES:[/bold yellow]")
+
+        if containers_without_screens:
+            console.print(
+                f"   • Containers without screen sessions: {len(containers_without_screens)}"
+            )
+            sorted_cws = sorted(list(containers_without_screens))
+            for i in range(0, len(sorted_cws), 10):
+                batch = sorted_cws[i : i + 10]
+                console.print(
+                    f"     {', '.join(str(slot) for slot in batch)}", style="dim"
+                )
+
+        if screens_without_containers:
+            console.print(
+                f"   • Screen sessions without containers: {len(screens_without_containers)}"
+            )
+            sorted_swc = sorted(list(screens_without_containers))
+            for i in range(0, len(sorted_swc), 10):
+                batch = sorted_swc[i : i + 10]
+                console.print(
+                    f"     {', '.join(str(slot) for slot in batch)}", style="dim"
+                )
+        console.print()
+
+    # Statistics
+    console.print("=" * 80)
+    running_pct = (
+        len(running_slot_ids & owned_slot_ids) / len(owned_slot_ids) * 100
+        if owned_slot_ids
+        else 0
+    )
+    not_running_pct = (
+        len(not_running) / len(owned_slot_ids) * 100 if owned_slot_ids else 0
+    )
+
+    console.print(f"Total slots owned: [bold]{len(owned_slot_ids)}[/bold]")
+    console.print(
+        f"Currently running: [bold green]{len(running_slot_ids & owned_slot_ids)}[/bold green] ({running_pct:.1f}%)"
+    )
+    console.print(
+        f"Not running: [bold red]{len(not_running)}[/bold red] ({not_running_pct:.1f}%)"
+    )
+    console.print("=" * 80)
+
+    # Hint for deploying missing slots
+    if not_running:
+        console.print(
+            f"\n💡 To deploy missing slots, run:\n"
+            f"   [cyan]snapshotter deploy --env {selected_powerloom_chain_name_upper.lower()} --slots {','.join(str(s) for s in sorted(not_running)[:5])}{',...' if len(not_running) > 5 else ''}[/cyan]",
+            style="dim",
+        )
+
+    # Exit code based on status
+    if not_running:
+        raise typer.Exit(1)
 
 
 @app.command(name="list")

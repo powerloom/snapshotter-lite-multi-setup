@@ -5,6 +5,18 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **CLI `--slots` flag** - Deploy specific slots via comma-separated list in CLI (e.g., `snapshotter deploy --slots 1234,5678,9012`)
+- **CLI `check` command** - New command to compare wallet-owned slots against running containers, showing running/not-running status, detecting orphaned sessions, and providing deployment hints
+- **--slots flag (multi_clone.py)** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
+- **check_slots.py script** - Monitor deployment health by comparing owned slots vs running containers with detailed statistics
+
+### Fixed
+- **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
+- **Profile set-default to "default"** - Fixed bug where `profile set-default default` didn't properly switch to the default profile in shell mode
+
 ## [v0.2.0] - 2025-10-27
 
 ### Added
