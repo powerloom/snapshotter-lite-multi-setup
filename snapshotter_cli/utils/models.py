@@ -24,6 +24,7 @@ class MarketConfig(BaseModel):
     sequencer: str
     compute: ComputeConfig
     config: ComputeConfig
+    bootstrapNodes: Optional[List[str]] = None  # List of bootstrap node multiaddrs
 
 
 class PowerloomChainConfig(BaseModel):

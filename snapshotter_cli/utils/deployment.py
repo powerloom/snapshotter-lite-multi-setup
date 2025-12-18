@@ -281,6 +281,30 @@ def deploy_snapshotter_instance(
     if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
         final_env_vars["DEV_MODE"] = "true"
         final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = "8001"
+        # P2P Discovery configuration for DSV devnet
+        final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-devnet-alpha"
+        final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-devnet-alpha/snapshot-submissions"
+        
+        # Extract bootstrap nodes from market config (from curated datamarkets JSON)
+        if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
+            final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(market_config.bootstrapNodes)
+        else:
+            # This should not happen for BDS_DEVNET_ALPHA_UNISWAPV3 as bootstrap nodes should be in JSON
+            console.print(
+                f"  ⚠️ No bootstrap nodes found in market config for {market_config.name}. BOOTSTRAP_NODE_ADDRS will not be set.",
+                style="yellow",
+            )
+            # Don't set BOOTSTRAP_NODE_ADDRS if not found - let it be undefined/empty
+        
+        # Connection manager configuration (required for dsv-p2p branch local collector)
+        # Using permissive values (100/400) for publisher role to prevent aggressive pruning
+        final_env_vars["CONN_MANAGER_LOW_WATER"] = "100"
+        final_env_vars["CONN_MANAGER_HIGH_WATER"] = "400"
+        # Stream pool configuration
+        final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"  # milliseconds
+        final_env_vars["WRITE_SEMAPHORE_TIMEOUT_SEC"] = "5"
+        # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
+        final_env_vars["PUBLIC_IP"] = ""
 
     final_env_vars["DATA_MARKET_CONTRACT"] = market_config.contractAddress
     final_env_vars["PROTOCOL_STATE_CONTRACT"] = (
@@ -304,7 +328,10 @@ def deploy_snapshotter_instance(
     final_env_vars.setdefault(
         "MAX_STREAM_POOL_SIZE", "2"
     )  # Default from multi_clone, may need adjustment based on CPU as in multi_clone
-    final_env_vars.setdefault("STREAM_POOL_HEALTH_CHECK_INTERVAL", "30")
+    # STREAM_POOL_HEALTH_CHECK_INTERVAL is in milliseconds (default: 60000 = 60 seconds)
+    # Only set default if not already set (BDS deployments will override with correct value)
+    if "STREAM_POOL_HEALTH_CHECK_INTERVAL" not in final_env_vars:
+        final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"
     final_env_vars.setdefault("DATA_MARKET_IN_REQUEST", "false")
     final_env_vars.setdefault(
         "LOCAL_COLLECTOR_IMAGE_TAG", "latest"
