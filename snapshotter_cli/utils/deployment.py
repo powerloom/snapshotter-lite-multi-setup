@@ -206,14 +206,14 @@ def deploy_snapshotter_instance(
 
                 # Checkout the specific branch
                 subprocess.run(
-                    ["git", "checkout", "feat/gossipsub-submissions"],
+                    ["git", "checkout", "feat/dsv-p2p-autorelay-central-seq-off"],
                     check=True,
                     capture_output=True,
                     cwd=str(local_collector_dir),
                 )
 
                 console.print(
-                    "    ✅ Local collector repo cloned and checked out to feat/gossipsub-submissions branch",
+                    "    ✅ Local collector repo cloned and checked out to feat/dsv-p2p-autorelay-central-seq-off branch",
                     style="dim green",
                 )
             except Exception as e:
@@ -300,9 +300,35 @@ def deploy_snapshotter_instance(
         # Using permissive values (100/400) for publisher role to prevent aggressive pruning
         final_env_vars["CONN_MANAGER_LOW_WATER"] = "100"
         final_env_vars["CONN_MANAGER_HIGH_WATER"] = "400"
-        # Stream pool configuration
+        
+        # Stream Pool Configuration (for centralized sequencer)
+        final_env_vars["MAX_STREAM_POOL_SIZE"] = "2"
+        final_env_vars["MAX_STREAM_QUEUE_SIZE"] = "1000"
+        final_env_vars["STREAM_HEALTH_CHECK_TIMEOUT_MS"] = "5000"
+        final_env_vars["STREAM_WRITE_TIMEOUT_MS"] = "5000"
+        final_env_vars["MAX_WRITE_RETRIES"] = "3"
+        final_env_vars["MAX_CONCURRENT_WRITES"] = "10"
         final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"  # milliseconds
+        final_env_vars["CONNECTION_REFRESH_INTERVAL_SEC"] = "300"
         final_env_vars["WRITE_SEMAPHORE_TIMEOUT_SEC"] = "5"
+        
+        # Centralized Sequencer Control
+        # Set to "false" to disable all submissions to centralized sequencer (mesh-only mode)
+        # Set to "true" to enable dual submission (both centralized sequencer and mesh)
+        final_env_vars["CENTRALIZED_SEQUENCER_ENABLED"] = "false"
+        
+        # Mesh Submission Concurrency Controls
+        # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
+        final_env_vars["MESH_SUBMISSION_RATE_LIMIT"] = "100"
+        final_env_vars["MESH_SUBMISSION_BURST_SIZE"] = "200"
+        # Maximum concurrent mesh publish operations (goroutine limit)
+        final_env_vars["MAX_MESH_PUBLISH_GOROUTINES"] = "500"
+        # Maximum queued mesh submissions when rate limited
+        final_env_vars["MESH_PUBLISH_QUEUE_SIZE"] = "1000"
+        
+        # Other Configuration
+        final_env_vars["DATA_MARKET_IN_REQUEST"] = "true"
+        
         # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
         final_env_vars["PUBLIC_IP"] = ""
 
