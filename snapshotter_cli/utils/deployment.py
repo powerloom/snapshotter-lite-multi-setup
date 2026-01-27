@@ -206,6 +206,40 @@ def deploy_snapshotter_instance(
 
                 # Checkout the specific branch
                 subprocess.run(
+                    ["git", "checkout", "dsv-p2p"],
+                    check=True,
+                    capture_output=True,
+                    cwd=str(local_collector_dir),
+                )
+
+                console.print(
+                    "    ✅ Local collector repo cloned and checked out to dsv-p2p branch",
+                    style="dim green",
+                )
+            except Exception as e:
+                console.print(
+                    f"    ❌ Failed to clone local collector repository: {e}",
+                    style="bold red",
+                )
+                return False
+        elif market_config.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3":
+            console.print(
+                "  🔗 Cloning local collector repository for BDS deployment...",
+                style="dim",
+            )
+            try:
+                local_collector_repo_url = "https://github.com/powerloom/snapshotter-lite-local-collector.git"
+                local_collector_dir = instance_dir / "snapshotter-lite-local-collector"
+
+                # Clone the repository
+                subprocess.run(
+                    ["git", "clone", local_collector_repo_url, str(local_collector_dir)],
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Checkout the specific branch
+                subprocess.run(
                     ["git", "checkout", "feat/dsv-p2p-autorelay-central-seq-off"],
                     check=True,
                     capture_output=True,
@@ -290,6 +324,59 @@ def deploy_snapshotter_instance(
             final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(market_config.bootstrapNodes)
         else:
             # This should not happen for BDS_DEVNET_ALPHA_UNISWAPV3 as bootstrap nodes should be in JSON
+            console.print(
+                f"  ⚠️ No bootstrap nodes found in market config for {market_config.name}. BOOTSTRAP_NODE_ADDRS will not be set.",
+                style="yellow",
+            )
+            # Don't set BOOTSTRAP_NODE_ADDRS if not found - let it be undefined/empty
+        
+        # Connection manager configuration (required for dsv-p2p branch local collector)
+        # Using permissive values (100/400) for publisher role to prevent aggressive pruning
+        final_env_vars["CONN_MANAGER_LOW_WATER"] = "100"
+        final_env_vars["CONN_MANAGER_HIGH_WATER"] = "400"
+        
+        # Stream Pool Configuration (for centralized sequencer)
+        final_env_vars["MAX_STREAM_POOL_SIZE"] = "2"
+        final_env_vars["MAX_STREAM_QUEUE_SIZE"] = "1000"
+        final_env_vars["STREAM_HEALTH_CHECK_TIMEOUT_MS"] = "5000"
+        final_env_vars["STREAM_WRITE_TIMEOUT_MS"] = "5000"
+        final_env_vars["MAX_WRITE_RETRIES"] = "3"
+        final_env_vars["MAX_CONCURRENT_WRITES"] = "10"
+        final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"  # milliseconds
+        final_env_vars["CONNECTION_REFRESH_INTERVAL_SEC"] = "300"
+        final_env_vars["WRITE_SEMAPHORE_TIMEOUT_SEC"] = "5"
+        
+        # Centralized Sequencer Control
+        # Set to "false" to disable all submissions to centralized sequencer (mesh-only mode)
+        # Set to "true" to enable dual submission (both centralized sequencer and mesh)
+        final_env_vars["CENTRALIZED_SEQUENCER_ENABLED"] = "false"
+        
+        # Mesh Submission Concurrency Controls
+        # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
+        final_env_vars["MESH_SUBMISSION_RATE_LIMIT"] = "100"
+        final_env_vars["MESH_SUBMISSION_BURST_SIZE"] = "200"
+        # Maximum concurrent mesh publish operations (goroutine limit)
+        final_env_vars["MAX_MESH_PUBLISH_GOROUTINES"] = "500"
+        # Maximum queued mesh submissions when rate limited
+        final_env_vars["MESH_PUBLISH_QUEUE_SIZE"] = "1000"
+        
+        # Other Configuration
+        final_env_vars["DATA_MARKET_IN_REQUEST"] = "true"
+        
+        # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
+        final_env_vars["PUBLIC_IP"] = ""
+    elif market_config.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3":
+        final_env_vars["DEV_MODE"] = "true"
+        final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = "8001"
+        # P2P Discovery configuration for DSV mainnet
+        final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-mainnet-alpha"
+        final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-mainnet-alpha/snapshot-submissions"
+        
+        # Extract bootstrap nodes from market config (from curated datamarkets JSON)
+        if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
+            final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(market_config.bootstrapNodes)
+        else:
+            # This should not happen for BDS_MAINNET_ALPHA_UNISWAPV3 as bootstrap nodes should be in JSON
             console.print(
                 f"  ⚠️ No bootstrap nodes found in market config for {market_config.name}. BOOTSTRAP_NODE_ADDRS will not be set.",
                 style="yellow",
