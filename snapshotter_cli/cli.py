@@ -966,6 +966,7 @@ def deploy(
                     source_chain_rpc_url=source_rpc_url,
                     base_snapshotter_lite_repo_path=base_snapshotter_clone_path,
                     build_sh_args_param=build_sh_args_for_instance,
+                    active_profile=active_profile,
                 )
                 if success:
                     successful_deployments += 1

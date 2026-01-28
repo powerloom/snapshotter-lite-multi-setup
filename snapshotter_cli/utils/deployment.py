@@ -117,6 +117,7 @@ def deploy_snapshotter_instance(
     source_chain_rpc_url: str,  # RPC URL for the market's source chain (e.g., ETH-MAINNET RPC)
     base_snapshotter_lite_repo_path: Path,  # New parameter for the path to the base clone
     build_sh_args_param: str,  # New parameter for dynamic build.sh arguments
+    active_profile: Optional[str] = None,  # Optional profile name to load env from profile directory
 ) -> bool:
     """
     Deploys a single snapshotter-lite-v2 instance for a given slot and market.
@@ -211,28 +212,48 @@ def deploy_snapshotter_instance(
         norm_source_chain_name_for_file,
     )
 
-    # First check in config directory
-    config_file_path = CONFIG_DIR / potential_config_filename
-    if config_file_path.exists():
-        console.print(
-            f"  ℹ️ Found pre-configured .env template in config directory: {config_file_path}. Loading it.",
-            style="dim",
+    # Check profile directory first (if active_profile is provided)
+    # This follows the same pattern used in cli.py for loading profile envs
+    config_file_path = None
+    if active_profile:
+        from snapshotter_cli.utils.profile import get_profile_env_path
+        profile_config_path = get_profile_env_path(
+            active_profile,
+            norm_pl_chain_name_for_file,
+            norm_market_name_for_file,
+            norm_source_chain_name_for_file,
         )
-        final_env_vars.update(parse_env_file_vars(str(config_file_path)))
-    else:
-        # Check current directory for backward compatibility
-        cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
-        if cwd_config_file_path.exists():
+        if profile_config_path.exists():
+            config_file_path = profile_config_path
             console.print(
-                f"  ⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to {CONFIG_DIR}",
-                style="yellow",
-            )
-            final_env_vars.update(parse_env_file_vars(str(cwd_config_file_path)))
-        else:
-            console.print(
-                f"  ℹ️ No pre-configured .env template found. Using minimal core settings.",
+                f"  ℹ️ Found pre-configured .env template in profile '{active_profile}': {config_file_path}. Loading it.",
                 style="dim",
             )
+            final_env_vars.update(parse_env_file_vars(str(config_file_path)))
+    
+    # Fallback to legacy CONFIG_DIR if profile file not found
+    if not config_file_path or not config_file_path.exists():
+        legacy_config_file_path = CONFIG_DIR / potential_config_filename
+        if legacy_config_file_path.exists():
+            console.print(
+                f"  ℹ️ Found pre-configured .env template in legacy config directory: {legacy_config_file_path}. Loading it.",
+                style="dim",
+            )
+            final_env_vars.update(parse_env_file_vars(str(legacy_config_file_path)))
+        else:
+            # Check current directory for backward compatibility
+            cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
+            if cwd_config_file_path.exists():
+                console.print(
+                    f"  ⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to profile directory.",
+                    style="yellow",
+                )
+                final_env_vars.update(parse_env_file_vars(str(cwd_config_file_path)))
+            else:
+                console.print(
+                    f"  ℹ️ No pre-configured .env template found. Using minimal core settings.",
+                    style="dim",
+                )
 
     # 2. Set essential/resolved values (these take highest precedence and will overwrite template if keys conflict)
     final_env_vars["OVERRIDE_DEFAULTS"] = "true"
