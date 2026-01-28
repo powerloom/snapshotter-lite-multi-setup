@@ -186,76 +186,7 @@ def deploy_snapshotter_instance(
         console.print(
             f"    ✅ Base snapshotter copied successfully.", style="dim green"
         )
-
-        # 3. Clone local collector repository for BDS deployments
-        if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
-            console.print(
-                "  🔗 Cloning local collector repository for BDS deployment...",
-                style="dim",
-            )
-            try:
-                local_collector_repo_url = "https://github.com/powerloom/snapshotter-lite-local-collector.git"
-                local_collector_dir = instance_dir / "snapshotter-lite-local-collector"
-
-                # Clone the repository
-                subprocess.run(
-                    ["git", "clone", local_collector_repo_url, str(local_collector_dir)],
-                    check=True,
-                    capture_output=True,
-                )
-
-                # Checkout the specific branch
-                subprocess.run(
-                    ["git", "checkout", "dsv-p2p"],
-                    check=True,
-                    capture_output=True,
-                    cwd=str(local_collector_dir),
-                )
-
-                console.print(
-                    "    ✅ Local collector repo cloned and checked out to dsv-p2p branch",
-                    style="dim green",
-                )
-            except Exception as e:
-                console.print(
-                    f"    ❌ Failed to clone local collector repository: {e}",
-                    style="bold red",
-                )
-                return False
-        elif market_config.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3":
-            console.print(
-                "  🔗 Cloning local collector repository for BDS deployment...",
-                style="dim",
-            )
-            try:
-                local_collector_repo_url = "https://github.com/powerloom/snapshotter-lite-local-collector.git"
-                local_collector_dir = instance_dir / "snapshotter-lite-local-collector"
-
-                # Clone the repository
-                subprocess.run(
-                    ["git", "clone", local_collector_repo_url, str(local_collector_dir)],
-                    check=True,
-                    capture_output=True,
-                )
-
-                # Checkout the specific branch
-                subprocess.run(
-                    ["git", "checkout", "feat/dsv-p2p-autorelay-central-seq-off"],
-                    check=True,
-                    capture_output=True,
-                    cwd=str(local_collector_dir),
-                )
-
-                console.print(
-                    "    ✅ Local collector repo cloned and checked out to feat/dsv-p2p-autorelay-central-seq-off branch",
-                    style="dim green",
-                )
-            except Exception as e:
-                console.print(
-                    f"    ❌ Failed to clone local collector repository: {e}",
-                    style="bold red",
-                )
-                return False
+        # Note: Local collector repository cloning is handled by build.sh, not here
     except Exception as e:
         console.print(
             f"  ❌ Error copying base snapshotter files from {base_snapshotter_lite_repo_path} to {instance_dir}: {e}",
