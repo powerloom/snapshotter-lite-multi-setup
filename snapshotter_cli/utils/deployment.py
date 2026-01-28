@@ -245,7 +245,9 @@ def deploy_snapshotter_instance(
     # Add BDS-specific environment variables for BDS_DEVNET_ALPHA_UNISWAPV3
     if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
         final_env_vars["DEV_MODE"] = "true"
-        final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = "8001"
+        final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
+        # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
+        final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
         # P2P Discovery configuration for DSV devnet
         final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-devnet-alpha"
         final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-devnet-alpha/snapshot-submissions"
@@ -298,7 +300,9 @@ def deploy_snapshotter_instance(
         final_env_vars["PUBLIC_IP"] = ""
     elif market_config.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3":
         final_env_vars["DEV_MODE"] = "true"
-        final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = "8001"
+        final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
+        # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
+        final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
         # P2P Discovery configuration for DSV mainnet
         final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-mainnet-alpha"
         final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-mainnet-alpha/snapshot-submissions"
