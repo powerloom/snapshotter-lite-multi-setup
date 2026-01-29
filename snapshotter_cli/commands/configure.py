@@ -88,6 +88,11 @@ def configure_command(
         "-c",
         help="Connection refresh interval for local collector to sequencer",
     ),
+    local_collector_p2p_port: Optional[int] = typer.Option(
+        None,
+        "--local-collector-p2p-port",
+        help="P2P port for local collector (gossipsub mesh communication, default: 8001)",
+    ),
 ):
     """Configure credentials and settings for a specific chain and market combination."""
     cli_context: CLIContext = ctx.obj
@@ -146,11 +151,16 @@ def configure_command(
     chain_config = chain_data.chain_config
     default_rpc_url = str(chain_config.rpcURL).rstrip("/")
 
-    # --- Select Powerloom RPC URL ---
+    # --- Select Powerloom RPC URL (namespaced env takes precedence over chain default) ---
     if powerloom_rpc_url:
         final_powerloom_rpc_url = powerloom_rpc_url
+    elif existing_env_vars.get("POWERLOOM_RPC_URL"):
+        final_powerloom_rpc_url = existing_env_vars.get("POWERLOOM_RPC_URL", "").strip()
+        console.print(
+            f"✅ Using Powerloom RPC URL from existing config: [bold cyan]{final_powerloom_rpc_url}[/bold cyan]",
+            style="green",
+        )
     else:
-        # Auto-use default RPC URL
         final_powerloom_rpc_url = default_rpc_url
         console.print(
             f"✅ Using default Powerloom RPC URL: [bold cyan]{default_rpc_url}[/bold cyan]",
@@ -352,6 +362,17 @@ def configure_command(
         or existing_env_vars.get("CONNECTION_REFRESH_INTERVAL_SEC")
         or "60"
     )
+
+    # Prompt for LOCAL_COLLECTOR_P2P_PORT (important for decentralized gossipsub mesh).
+    # If the namespaced env did not have this key earlier, default "8001" is shown and written on save.
+    final_local_collector_p2p_port = (
+        str(local_collector_p2p_port)
+        if local_collector_p2p_port is not None
+        else Prompt.ask(
+            "👉 Enter local collector P2P port (for gossipsub mesh communication)",
+            default=existing_env_vars.get("LOCAL_COLLECTOR_P2P_PORT", "8001"),
+        )
+    )
     env_contents = []
     if final_wallet_address:
         env_contents.append(f"WALLET_HOLDER_ADDRESS={final_wallet_address}")
@@ -377,6 +398,10 @@ def configure_command(
         )
     if final_powerloom_rpc_url:
         env_contents.append(f"POWERLOOM_RPC_URL={final_powerloom_rpc_url}")
+
+    # Add P2P port (important for decentralized gossipsub mesh)
+    if final_local_collector_p2p_port:
+        env_contents.append(f"LOCAL_COLLECTOR_P2P_PORT={final_local_collector_p2p_port}")
 
     # Add default values for LITE_NODE_BRANCH and LOCAL_COLLECTOR_IMAGE_TAG
     env_contents.append("LITE_NODE_BRANCH=main")

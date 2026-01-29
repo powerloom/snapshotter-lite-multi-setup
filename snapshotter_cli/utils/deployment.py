@@ -260,8 +260,24 @@ def deploy_snapshotter_instance(
     final_env_vars["SLOT_ID"] = str(slot_id)
     final_env_vars["SIGNER_ACCOUNT_ADDRESS"] = signer_address
     final_env_vars["SIGNER_ACCOUNT_PRIVATE_KEY"] = signer_private_key
-    final_env_vars["POWERLOOM_RPC_URL"] = str(powerloom_chain_config.rpcURL).rstrip("/")
+    # Namespaced env takes precedence; otherwise use chain config
+    final_env_vars.setdefault(
+        "POWERLOOM_RPC_URL", str(powerloom_chain_config.rpcURL).rstrip("/")
+    )
     final_env_vars["SOURCE_RPC_URL"] = source_chain_rpc_url
+
+    # Apply mesh/P2P defaults from market config when present (namespaced env still wins)
+    if market_config.rendezvousPoint:
+        final_env_vars.setdefault("RENDEZVOUS_POINT", market_config.rendezvousPoint)
+    if market_config.gossipsubSnapshotSubmissionPrefix:
+        final_env_vars.setdefault(
+            "GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX",
+            market_config.gossipsubSnapshotSubmissionPrefix,
+        )
+    if market_config.centralizedSequencerEnabled is not None:
+        final_env_vars.setdefault(
+            "CENTRALIZED_SEQUENCER_ENABLED", market_config.centralizedSequencerEnabled
+        )
 
     # Add BDS-specific environment variables for BDS_DEVNET_ALPHA_UNISWAPV3
     if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
@@ -269,9 +285,12 @@ def deploy_snapshotter_instance(
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
-        # P2P Discovery configuration for DSV devnet
-        final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-devnet-alpha"
-        final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-devnet-alpha/snapshot-submissions"
+        # P2P Discovery (market config or namespaced env override these when set)
+        final_env_vars.setdefault("RENDEZVOUS_POINT", "powerloom-dsv-devnet-alpha")
+        final_env_vars.setdefault(
+            "GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX",
+            "/powerloom/dsv-devnet-alpha/snapshot-submissions",
+        )
         
         # Extract bootstrap nodes from market config (from curated datamarkets JSON)
         if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
@@ -303,7 +322,7 @@ def deploy_snapshotter_instance(
         # Centralized Sequencer Control
         # Set to "false" to disable all submissions to centralized sequencer (mesh-only mode)
         # Set to "true" to enable dual submission (both centralized sequencer and mesh)
-        final_env_vars["CENTRALIZED_SEQUENCER_ENABLED"] = "false"
+        final_env_vars.setdefault("CENTRALIZED_SEQUENCER_ENABLED", "false")
         
         # Mesh Submission Concurrency Controls
         # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
@@ -324,9 +343,12 @@ def deploy_snapshotter_instance(
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
-        # P2P Discovery configuration for DSV mainnet
-        final_env_vars["RENDEZVOUS_POINT"] = "powerloom-dsv-mainnet-alpha"
-        final_env_vars["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = "/powerloom/dsv-mainnet-alpha/snapshot-submissions"
+        # P2P Discovery (market config or namespaced env override these when set)
+        final_env_vars.setdefault("RENDEZVOUS_POINT", "powerloom-dsv-mainnet-alpha")
+        final_env_vars.setdefault(
+            "GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX",
+            "/powerloom/dsv-mainnet-alpha/snapshot-submissions",
+        )
         
         # Extract bootstrap nodes from market config (from curated datamarkets JSON)
         if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
@@ -358,7 +380,7 @@ def deploy_snapshotter_instance(
         # Centralized Sequencer Control
         # Set to "false" to disable all submissions to centralized sequencer (mesh-only mode)
         # Set to "true" to enable dual submission (both centralized sequencer and mesh)
-        final_env_vars["CENTRALIZED_SEQUENCER_ENABLED"] = "false"
+        final_env_vars.setdefault("CENTRALIZED_SEQUENCER_ENABLED", "false")
         
         # Mesh Submission Concurrency Controls
         # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
