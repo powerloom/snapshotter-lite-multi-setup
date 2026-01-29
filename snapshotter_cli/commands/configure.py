@@ -151,6 +151,9 @@ def configure_command(
     chain_config = chain_data.chain_config
     default_rpc_url = str(chain_config.rpcURL).rstrip("/")
 
+    # Initialize existing_env_vars early (will be loaded later after market selection)
+    existing_env_vars = {}
+
     # --- Select Powerloom RPC URL (namespaced env takes precedence over chain default) ---
     if powerloom_rpc_url:
         final_powerloom_rpc_url = powerloom_rpc_url
