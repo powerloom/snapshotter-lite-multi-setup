@@ -429,6 +429,18 @@ def deploy_snapshotter_instance(
     )  # Simplified default
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
+    
+    # Normalize boolean env vars to lowercase AFTER all values are set
+    # This handles cases where env files have "False" or "True" instead of "false" or "true"
+    # Go's strconv.ParseBool is case-insensitive, but normalizing ensures consistency
+    boolean_env_vars = [
+        "CENTRALIZED_SEQUENCER_ENABLED",
+        "DEV_MODE",
+        "DATA_MARKET_IN_REQUEST",
+    ]
+    for var in boolean_env_vars:
+        if var in final_env_vars:
+            final_env_vars[var] = final_env_vars[var].lower()
 
     # TELEGRAM_REPORTING_URL and TELEGRAM_CHAT_ID will be included if they were in the pre-configured .env
     # or global env vars that got loaded into namespaced_env_content (passed to get_credential originally).
