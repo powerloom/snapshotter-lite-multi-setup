@@ -275,8 +275,10 @@ def deploy_snapshotter_instance(
             market_config.gossipsubSnapshotSubmissionPrefix,
         )
     if market_config.centralizedSequencerEnabled is not None:
+        # Convert boolean to lowercase string
+        centralized_seq_enabled_str = str(market_config.centralizedSequencerEnabled).lower()
         final_env_vars.setdefault(
-            "CENTRALIZED_SEQUENCER_ENABLED", market_config.centralizedSequencerEnabled
+            "CENTRALIZED_SEQUENCER_ENABLED", centralized_seq_enabled_str
         )
 
     # Add BDS-specific environment variables for BDS_DEVNET_ALPHA_UNISWAPV3
@@ -440,7 +442,8 @@ def deploy_snapshotter_instance(
     ]
     for var in boolean_env_vars:
         if var in final_env_vars:
-            final_env_vars[var] = final_env_vars[var].lower()
+            # Convert to string first (handles bool values from market_config), then lowercase
+            final_env_vars[var] = str(final_env_vars[var]).lower()
 
     # TELEGRAM_REPORTING_URL and TELEGRAM_CHAT_ID will be included if they were in the pre-configured .env
     # or global env vars that got loaded into namespaced_env_content (passed to get_credential originally).
