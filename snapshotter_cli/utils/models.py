@@ -28,7 +28,7 @@ class MarketConfig(BaseModel):
     # P2P / mesh (optional; when set, used as defaults; namespaced env overrides)
     rendezvousPoint: Optional[str] = None
     gossipsubSnapshotSubmissionPrefix: Optional[str] = None
-    centralizedSequencerEnabled: Optional[str] = None  # "true" or "false"
+    centralizedSequencerEnabled: Optional[bool] = False
 
 
 class PowerloomChainConfig(BaseModel):
