@@ -348,8 +348,10 @@ def deploy_snapshotter_instance(
         # Note: DEV_MODE not forced - user controls via namespaced env file
         # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
         # For production deployments (DEV_MODE not set), use experimental tag for pre-built images
-        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "experimental")
-        final_env_vars.setdefault("IMAGE_TAG", "experimental")
+        # FOR MAINNET ALPHA, we are forcefully setting both lite node and local collector to experimental tag
+        # even if the namepsaced env file specifies other tags.
+        final_env_vars['LOCAL_COLLECTOR_IMAGE_TAG'] = "experimental"
+        final_env_vars['IMAGE_TAG'] = "experimental"
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
