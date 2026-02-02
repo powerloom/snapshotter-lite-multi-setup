@@ -283,7 +283,11 @@ def deploy_snapshotter_instance(
 
     # Add BDS-specific environment variables for BDS_DEVNET_ALPHA_UNISWAPV3
     if market_config.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3":
-        final_env_vars["DEV_MODE"] = "true"
+        # Note: DEV_MODE not forced - user controls via namespaced env file
+        # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
+        # For production deployments (DEV_MODE not set), use experimental tag for pre-built images
+        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "experimental")
+        final_env_vars.setdefault("IMAGE_TAG", "experimental")
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
@@ -341,7 +345,11 @@ def deploy_snapshotter_instance(
         # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
         final_env_vars["PUBLIC_IP"] = ""
     elif market_config.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3":
-        final_env_vars["DEV_MODE"] = "true"
+        # Note: DEV_MODE not forced - user controls via namespaced env file
+        # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
+        # For production deployments (DEV_MODE not set), use experimental tag for pre-built images
+        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "experimental")
+        final_env_vars.setdefault("IMAGE_TAG", "experimental")
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
