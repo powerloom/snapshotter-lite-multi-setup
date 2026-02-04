@@ -147,28 +147,10 @@ def configure_command(
     # --- Select Data Market ---
     chain_data = cli_context.chain_markets_map[selected_chain_name_upper]
 
-    # --- Get Powerloom RPC URL from chain config ---
+    # --- Get Powerloom RPC URL from chain config (used as fallback) ---
     chain_config = chain_data.chain_config
     default_rpc_url = str(chain_config.rpcURL).rstrip("/")
 
-    # Initialize existing_env_vars early (will be loaded later after market selection)
-    existing_env_vars = {}
-
-    # --- Select Powerloom RPC URL (namespaced env takes precedence over chain default) ---
-    if powerloom_rpc_url:
-        final_powerloom_rpc_url = powerloom_rpc_url
-    elif existing_env_vars.get("POWERLOOM_RPC_URL"):
-        final_powerloom_rpc_url = existing_env_vars.get("POWERLOOM_RPC_URL", "").strip()
-        console.print(
-            f"✅ Using Powerloom RPC URL from existing config: [bold cyan]{final_powerloom_rpc_url}[/bold cyan]",
-            style="green",
-        )
-    else:
-        final_powerloom_rpc_url = default_rpc_url
-        console.print(
-            f"✅ Using default Powerloom RPC URL: [bold cyan]{default_rpc_url}[/bold cyan]",
-            style="green",
-        )
     available_markets = sorted(chain_data.markets.keys())
     if not available_markets:
         console.print(
@@ -315,6 +297,19 @@ def configure_command(
         f"👉 Enter RPC URL for {selected_market_obj.sourceChain}",
         default=existing_env_vars.get("SOURCE_RPC_URL", ""),
     )
+    # Prompt for Powerloom RPC URL (existing env takes precedence over chain default)
+    if powerloom_rpc_url:
+        final_powerloom_rpc_url = powerloom_rpc_url
+        console.print(
+            f"✅ Using Powerloom RPC URL from CLI: [bold cyan]{final_powerloom_rpc_url}[/bold cyan]",
+            style="green",
+        )
+    else:
+        existing_powerloom_rpc = existing_env_vars.get("POWERLOOM_RPC_URL", "").strip()
+        final_powerloom_rpc_url = Prompt.ask(
+            "👉 Enter Powerloom RPC URL",
+            default=existing_powerloom_rpc or default_rpc_url,
+        )
     final_telegram_chat = telegram_chat_id or Prompt.ask(
         "👉 Enter Telegram chat ID (optional)",
         default=existing_env_vars.get("TELEGRAM_CHAT_ID", ""),
