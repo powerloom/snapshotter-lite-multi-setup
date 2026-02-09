@@ -247,7 +247,12 @@ def deploy(
         help="Data markets to deploy. If --env is provided but this is not, you will be prompted.",
     ),
     slots: Optional[List[int]] = typer.Option(
-        None, "--slot", "-s", help="Specific slot IDs to deploy."
+        None, "--slot", "-s", help="Specific slot IDs to deploy (can be repeated)."
+    ),
+    slots_str: Optional[str] = typer.Option(
+        None,
+        "--slots",
+        help="Comma-separated list of slot IDs to deploy (e.g., --slots 1234,5678,9012).",
     ),
     wallet_address_opt: Optional[str] = typer.Option(
         None, "--wallet", "-w", help="Wallet address (0x...) holding the slots."
@@ -268,6 +273,47 @@ def deploy(
         )
         raise typer.Exit(1)
     console.print("🐳 Docker daemon is running.", style="green")
+
+    # --- Parse --slots string and merge with --slot list ---
+    parsed_slots_from_str: List[int] = []
+    if slots_str:
+        try:
+            # Replace newlines and other whitespace with commas, then split
+            normalized = slots_str.replace("\n", ",").replace("\r", ",")
+            parsed_slots_from_str = [
+                int(slot.strip()) for slot in normalized.split(",") if slot.strip()
+            ]
+            if not parsed_slots_from_str:
+                console.print("❌ --slots cannot be empty.", style="bold red")
+                raise typer.Exit(1)
+            if len(parsed_slots_from_str) != len(set(parsed_slots_from_str)):
+                console.print(
+                    "❌ --slots contains duplicate slot IDs.", style="bold red"
+                )
+                raise typer.Exit(1)
+        except ValueError as e:
+            console.print(
+                f"❌ --slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}",
+                style="bold red",
+            )
+            raise typer.Exit(1)
+
+    # Merge --slot and --slots into a single list
+    combined_slots: Optional[List[int]] = None
+    if slots and parsed_slots_from_str:
+        # Both provided - merge and deduplicate while preserving order
+        combined_slots = list(dict.fromkeys(list(slots) + parsed_slots_from_str))
+        console.print(
+            f"ℹ️ Combined slots from --slot and --slots: {combined_slots}",
+            style="dim",
+        )
+    elif slots:
+        combined_slots = list(slots)
+    elif parsed_slots_from_str:
+        combined_slots = parsed_slots_from_str
+
+    # Use combined_slots instead of slots from here on
+    slots = combined_slots
 
     cli_context: CLIContext = ctx.obj
     if not cli_context or not cli_context.chain_markets_map:

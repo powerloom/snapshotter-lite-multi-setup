@@ -785,6 +785,7 @@ def main(
     use_env_refresh_interval: bool = False,
     parallel_workers: int = None,
     sequential: bool = False,
+    slot_list: list = None,
 ):
     # check if Docker is running
     if not docker_running():
@@ -899,6 +900,17 @@ def main(
         latest_slot = max(slot_ids)
         deploy_slots = [latest_slot]
         print(f"🟢 Latest-only mode: Deploying only the latest slot {latest_slot}")
+    elif slot_list:
+        # Deploy specific slots from provided list
+        invalid_slots = [slot for slot in slot_list if slot not in slot_ids]
+        if invalid_slots:
+            print(
+                f"❌ Error: The following slots are not owned by this wallet: {invalid_slots}"
+            )
+            print(f"Available slots: {slot_ids}")
+            sys.exit(1)
+        deploy_slots = slot_list
+        print(f"🟢 Slot list mode: Deploying specified slots {deploy_slots}")
     elif non_interactive:
         deploy_slots = slot_ids
         print("🟢 Non-interactive mode: Deploying all slots")
@@ -1120,6 +1132,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable parallel deployment and use sequential mode (backward compatibility)",
     )
+    parser.add_argument(
+        "--slots",
+        type=str,
+        metavar="SLOT_IDS",
+        help="Comma-separated list of specific slot IDs to deploy (e.g., --slots 1234,5678,9012)",
+    )
 
     args = parser.parse_args()
 
@@ -1130,6 +1148,33 @@ if __name__ == "__main__":
         if args.parallel_workers < 1 or args.parallel_workers > 8:
             parser.error("--parallel-workers must be between 1 and 8")
 
+    # Parse slot list if provided
+    slot_list = None
+    if args.slots:
+        try:
+            # Replace newlines and other whitespace with commas, then split by comma
+            normalized = args.slots.replace("\n", ",").replace("\r", ",")
+            # Split by comma and filter out empty strings
+            slot_list = [
+                int(slot.strip()) for slot in normalized.split(",") if slot.strip()
+            ]
+            if not slot_list:
+                parser.error("--slots cannot be empty")
+            if len(slot_list) != len(set(slot_list)):
+                parser.error("--slots contains duplicate slot IDs")
+        except ValueError as e:
+            parser.error(
+                f"--slots must be a comma-separated list of integers (e.g., 1234,5678,9012). Error: {e}"
+            )
+
+    # Validate conflicting options
+    if slot_list and args.latest_only:
+        parser.error("--slots and --latest-only cannot be used together")
+    if slot_list and args.yes:
+        parser.error(
+            "--slots and --yes cannot be used together (--slots already specifies which slots to deploy)"
+        )
+
     main(
         data_market_choice=data_market,
         non_interactive=args.yes,
@@ -1137,4 +1182,5 @@ if __name__ == "__main__":
         use_env_refresh_interval=args.use_env_connection_refresh_interval,
         parallel_workers=args.parallel_workers,
         sequential=args.sequential,
+        slot_list=slot_list,
     )
