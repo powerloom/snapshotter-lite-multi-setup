@@ -415,9 +415,15 @@ def deploy_snapshotter_instance(
     )
     final_env_vars["SNAPSHOT_CONFIG_REPO"] = str(market_config.config.repo)
     final_env_vars["SNAPSHOT_CONFIG_REPO_BRANCH"] = market_config.config.branch
+    # Set commit ID if available (from sources.json)
+    if market_config.config.commit:
+        final_env_vars["SNAPSHOT_CONFIG_REPO_COMMIT"] = market_config.config.commit
 
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO"] = str(market_config.compute.repo)
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = market_config.compute.branch
+    # Set commit ID if available (from sources.json)
+    if market_config.compute.commit:
+        final_env_vars["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = market_config.compute.commit
 
     final_env_vars["POWERLOOM_CHAIN"] = norm_pl_chain_name
     final_env_vars["NAMESPACE"] = market_name_upper
