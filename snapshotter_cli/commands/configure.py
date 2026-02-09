@@ -371,39 +371,74 @@ def configure_command(
             default=existing_env_vars.get("LOCAL_COLLECTOR_P2P_PORT", "8001"),
         )
     )
-    env_contents = []
+    
+    # Start with all existing env vars to preserve any that aren't part of the template
+    # This prevents overwriting custom env vars like LOCAL_COLLECTOR_HEALTH_CHECK_PORT
+    # Filter out None values (dotenv_values returns None for missing keys)
+    final_env_vars = {
+        k: v for k, v in (existing_env_vars.items() if existing_env_vars else {})
+        if v is not None
+    }
+    
+    # Update only the configured fields (merge approach)
     if final_wallet_address:
-        env_contents.append(f"WALLET_HOLDER_ADDRESS={final_wallet_address}")
+        final_env_vars["WALLET_HOLDER_ADDRESS"] = final_wallet_address
     if final_signer_address:
-        env_contents.append(f"SIGNER_ACCOUNT_ADDRESS={final_signer_address}")
+        final_env_vars["SIGNER_ACCOUNT_ADDRESS"] = final_signer_address
     if final_signer_key:
-        env_contents.append(f"SIGNER_ACCOUNT_PRIVATE_KEY={final_signer_key}")
+        final_env_vars["SIGNER_ACCOUNT_PRIVATE_KEY"] = final_signer_key
     if final_source_rpc:
-        env_contents.append(f"SOURCE_RPC_URL={final_source_rpc}")
+        final_env_vars["SOURCE_RPC_URL"] = final_source_rpc
     if final_telegram_chat:
-        env_contents.append(f"TELEGRAM_CHAT_ID={final_telegram_chat}")
+        final_env_vars["TELEGRAM_CHAT_ID"] = final_telegram_chat
     if final_telegram_url:
-        env_contents.append(f"TELEGRAM_REPORTING_URL={final_telegram_url}")
+        final_env_vars["TELEGRAM_REPORTING_URL"] = final_telegram_url
     if final_telegram_cooldown:
-        env_contents.append(f"TELEGRAM_NOTIFICATION_COOLDOWN={final_telegram_cooldown}")
+        final_env_vars["TELEGRAM_NOTIFICATION_COOLDOWN"] = final_telegram_cooldown
     if final_telegram_thread:
-        env_contents.append(f"TELEGRAM_MESSAGE_THREAD_ID={final_telegram_thread}")
+        final_env_vars["TELEGRAM_MESSAGE_THREAD_ID"] = final_telegram_thread
     if final_max_stream_pool_size:
-        env_contents.append(f"MAX_STREAM_POOL_SIZE={final_max_stream_pool_size}")
+        final_env_vars["MAX_STREAM_POOL_SIZE"] = final_max_stream_pool_size
     if final_connection_refresh_interval:
-        env_contents.append(
-            f"CONNECTION_REFRESH_INTERVAL_SEC={final_connection_refresh_interval}"
-        )
+        final_env_vars["CONNECTION_REFRESH_INTERVAL_SEC"] = final_connection_refresh_interval
     if final_powerloom_rpc_url:
-        env_contents.append(f"POWERLOOM_RPC_URL={final_powerloom_rpc_url}")
-
-    # Add P2P port (important for decentralized gossipsub mesh)
+        final_env_vars["POWERLOOM_RPC_URL"] = final_powerloom_rpc_url
     if final_local_collector_p2p_port:
-        env_contents.append(f"LOCAL_COLLECTOR_P2P_PORT={final_local_collector_p2p_port}")
+        final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = final_local_collector_p2p_port
 
-    # Add default values for LITE_NODE_BRANCH and LOCAL_COLLECTOR_IMAGE_TAG
-    env_contents.append("LITE_NODE_BRANCH=main")
-    env_contents.append("LOCAL_COLLECTOR_IMAGE_TAG=latest")
+    # Set default values for LITE_NODE_BRANCH and LOCAL_COLLECTOR_IMAGE_TAG if not present
+    final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
+    final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
+    
+    # Build env_contents list from the merged dict for display and writing
+    env_contents = []
+    # Define the order for template fields (for consistent output)
+    template_field_order = [
+        "WALLET_HOLDER_ADDRESS",
+        "SIGNER_ACCOUNT_ADDRESS",
+        "SIGNER_ACCOUNT_PRIVATE_KEY",
+        "SOURCE_RPC_URL",
+        "POWERLOOM_RPC_URL",
+        "TELEGRAM_CHAT_ID",
+        "TELEGRAM_REPORTING_URL",
+        "TELEGRAM_NOTIFICATION_COOLDOWN",
+        "TELEGRAM_MESSAGE_THREAD_ID",
+        "MAX_STREAM_POOL_SIZE",
+        "CONNECTION_REFRESH_INTERVAL_SEC",
+        "LOCAL_COLLECTOR_P2P_PORT",
+        "LITE_NODE_BRANCH",
+        "LOCAL_COLLECTOR_IMAGE_TAG",
+    ]
+    
+    # Add template fields in order
+    for key in template_field_order:
+        if key in final_env_vars and final_env_vars[key] is not None:
+            env_contents.append(f"{key}={final_env_vars[key]}")
+    
+    # Add any remaining env vars that aren't in the template (preserve custom vars)
+    for key, value in sorted(final_env_vars.items()):
+        if key not in template_field_order and value is not None:
+            env_contents.append(f"{key}={value}")
 
     if env_file_path.exists():
         while True:
