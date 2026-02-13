@@ -40,7 +40,7 @@ from .utils.models import (
 from .utils.system_checks import is_docker_running, list_snapshotter_screen_sessions
 
 MARKETS_CONFIG_URL = (
-    "https://raw.githubusercontent.com/powerloom/curated-datamarkets/main/sources.json"
+    "https://raw.githubusercontent.com/powerloom/curated-datamarkets/master/sources.json"
 )
 
 
@@ -761,7 +761,20 @@ def deploy(
 
         # Get LITE_NODE_BRANCH from namespaced env content or use default
         lite_node_branch = "main"  # default branch
-        if namespaced_env_content and "LITE_NODE_BRANCH" in namespaced_env_content:
+
+        # Check if any selected market is BDS_DEVNET_ALPHA_UNISWAPV3 or BDS_MAINNET_ALPHA_UNISWAPV3 and set specific branch
+        bds_market_selected = any(
+            market.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3" 
+            or market.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3" 
+            for market in selected_market_objects
+        )
+        if bds_market_selected:
+            lite_node_branch = "feat/bds_lite_dsv_rollout"
+            console.print(
+                f"🚀 BDS DSV market detected - using branch: [bold cyan]{lite_node_branch}[/bold cyan]",
+                style="dim",
+            )
+        elif namespaced_env_content and "LITE_NODE_BRANCH" in namespaced_env_content:
             lite_node_branch = namespaced_env_content["LITE_NODE_BRANCH"]
             console.print(
                 f"📌 Using LITE_NODE_BRANCH from configuration: [bold cyan]{lite_node_branch}[/bold cyan]",
@@ -962,6 +975,10 @@ def deploy(
                     data_market_number = "1"
                 elif market_name == "UNISWAPV2":
                     data_market_number = "2"
+                elif market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
+                    data_market_number = "1"
+                elif market_name == "BDS_MAINNET_ALPHA_UNISWAPV3":
+                    data_market_number = "1"
                 else:
                     # Default to 1 for unknown markets
                     data_market_number = "1"
@@ -971,8 +988,13 @@ def deploy(
                     f"{base_args} --data-market-contract-number {data_market_number}"
                 )
 
-                # Add --devnet flag if deploying to devnet
-                if selected_powerloom_chain_name_upper == "DEVNET":
+                
+                # Add appropriate flag based on chain and market
+                if selected_powerloom_chain_name_upper == "DEVNET" and market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
+                    build_sh_args_for_instance = f"--bds-dsv-devnet {base_args}"
+                elif selected_powerloom_chain_name_upper == "MAINNET" and market_name == "BDS_MAINNET_ALPHA_UNISWAPV3":
+                    build_sh_args_for_instance = f"--bds-dsv-mainnet-alpha {base_args}"
+                elif selected_powerloom_chain_name_upper == "DEVNET":
                     build_sh_args_for_instance = f"--devnet {base_args}"
                 else:
                     build_sh_args_for_instance = base_args
@@ -990,6 +1012,7 @@ def deploy(
                     source_chain_rpc_url=source_rpc_url,
                     base_snapshotter_lite_repo_path=base_snapshotter_clone_path,
                     build_sh_args_param=build_sh_args_for_instance,
+                    active_profile=active_profile,
                 )
                 if success:
                     successful_deployments += 1
