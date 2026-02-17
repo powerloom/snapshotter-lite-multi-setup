@@ -769,7 +769,7 @@ def deploy(
             for market in selected_market_objects
         )
         if bds_market_selected:
-            lite_node_branch = "feat/bds_lite_dsv_rollout"
+            lite_node_branch = "master"
             console.print(
                 f"🚀 BDS DSV market detected - using branch: [bold cyan]{lite_node_branch}[/bold cyan]",
                 style="dim",
