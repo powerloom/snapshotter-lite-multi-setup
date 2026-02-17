@@ -371,15 +371,16 @@ def configure_command(
             default=existing_env_vars.get("LOCAL_COLLECTOR_P2P_PORT", "8001"),
         )
     )
-    
+
     # Start with all existing env vars to preserve any that aren't part of the template
     # This prevents overwriting custom env vars like LOCAL_COLLECTOR_HEALTH_CHECK_PORT
     # Filter out None values (dotenv_values returns None for missing keys)
     final_env_vars = {
-        k: v for k, v in (existing_env_vars.items() if existing_env_vars else {})
+        k: v
+        for k, v in (existing_env_vars.items() if existing_env_vars else {})
         if v is not None
     }
-    
+
     # Update only the configured fields (merge approach)
     if final_wallet_address:
         final_env_vars["WALLET_HOLDER_ADDRESS"] = final_wallet_address
@@ -400,7 +401,9 @@ def configure_command(
     if final_max_stream_pool_size:
         final_env_vars["MAX_STREAM_POOL_SIZE"] = final_max_stream_pool_size
     if final_connection_refresh_interval:
-        final_env_vars["CONNECTION_REFRESH_INTERVAL_SEC"] = final_connection_refresh_interval
+        final_env_vars["CONNECTION_REFRESH_INTERVAL_SEC"] = (
+            final_connection_refresh_interval
+        )
     if final_powerloom_rpc_url:
         final_env_vars["POWERLOOM_RPC_URL"] = final_powerloom_rpc_url
     if final_local_collector_p2p_port:
@@ -409,7 +412,7 @@ def configure_command(
     # Set default values for LITE_NODE_BRANCH and LOCAL_COLLECTOR_IMAGE_TAG if not present
     final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
     final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
-    
+
     # Build env_contents list from the merged dict for display and writing
     env_contents = []
     # Define the order for template fields (for consistent output)
@@ -429,12 +432,12 @@ def configure_command(
         "LITE_NODE_BRANCH",
         "LOCAL_COLLECTOR_IMAGE_TAG",
     ]
-    
+
     # Add template fields in order
     for key in template_field_order:
         if key in final_env_vars and final_env_vars[key] is not None:
             env_contents.append(f"{key}={final_env_vars[key]}")
-    
+
     # Add any remaining env vars that aren't in the template (preserve custom vars)
     for key, value in sorted(final_env_vars.items()):
         if key not in template_field_order and value is not None:

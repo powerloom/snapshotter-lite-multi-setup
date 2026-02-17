@@ -117,7 +117,9 @@ def deploy_snapshotter_instance(
     source_chain_rpc_url: str,  # RPC URL for the market's source chain (e.g., ETH-MAINNET RPC)
     base_snapshotter_lite_repo_path: Path,  # New parameter for the path to the base clone
     build_sh_args_param: str,  # New parameter for dynamic build.sh arguments
-    active_profile: Optional[str] = None,  # Optional profile name to load env from profile directory
+    active_profile: Optional[
+        str
+    ] = None,  # Optional profile name to load env from profile directory
 ) -> bool:
     """
     Deploys a single snapshotter-lite-v2 instance for a given slot and market.
@@ -217,6 +219,7 @@ def deploy_snapshotter_instance(
     config_file_path = None
     if active_profile:
         from snapshotter_cli.utils.profile import get_profile_env_path
+
         profile_config_path = get_profile_env_path(
             active_profile,
             norm_pl_chain_name_for_file,
@@ -230,7 +233,7 @@ def deploy_snapshotter_instance(
                 style="dim",
             )
             final_env_vars.update(parse_env_file_vars(str(config_file_path)))
-    
+
     # Fallback to legacy CONFIG_DIR if profile file not found
     if not config_file_path or not config_file_path.exists():
         legacy_config_file_path = CONFIG_DIR / potential_config_filename
@@ -276,7 +279,9 @@ def deploy_snapshotter_instance(
         )
     if market_config.centralizedSequencerEnabled is not None:
         # Convert boolean to lowercase string
-        centralized_seq_enabled_str = str(market_config.centralizedSequencerEnabled).lower()
+        centralized_seq_enabled_str = str(
+            market_config.centralizedSequencerEnabled
+        ).lower()
         final_env_vars.setdefault(
             "CENTRALIZED_SEQUENCER_ENABLED", centralized_seq_enabled_str
         )
@@ -286,34 +291,39 @@ def deploy_snapshotter_instance(
     # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
     # For production deployments (DEV_MODE not set), use experimental tag for pre-built images
     # Since dev mode is not yet available for snapshotter-lite-v2, we force experimental tags for all BDS markets
-    if market_config.name.upper() in ("BDS_DEVNET_ALPHA_UNISWAPV3", "BDS_MAINNET_UNISWAPV3"):
+    if market_config.name.upper() in (
+        "BDS_DEVNET_ALPHA_UNISWAPV3",
+        "BDS_MAINNET_UNISWAPV3",
+    ):
         # Force experimental image tags for BDS markets (dev mode not available yet)
         final_env_vars["LOCAL_COLLECTOR_IMAGE_TAG"] = "experimental"
         final_env_vars["IMAGE_TAG"] = "master"
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
-        
+
         # P2P Discovery parameters are pulled from sources.json via setdefault calls above (lines 270-282)
         # RENDEZVOUS_POINT, GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX, and CENTRALIZED_SEQUENCER_ENABLED
         # are already set from market_config values, so we don't override them here
-        
+
         # Extract bootstrap nodes from market config (from curated datamarkets JSON)
         if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
-            final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(market_config.bootstrapNodes)
+            final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(
+                market_config.bootstrapNodes
+            )
         else:
             console.print(
                 f"  ⚠️ No bootstrap nodes found in market config for {market_config.name}. BOOTSTRAP_NODE_ADDRS will not be set.",
                 style="yellow",
             )
             # Don't set BOOTSTRAP_NODE_ADDRS if not found - let it be undefined/empty
-        
+
         # Connection manager configuration (required for dsv-p2p branch local collector)
         # Using permissive values (100/400) for publisher role to prevent aggressive pruning
         # Respect existing values from namespaced env files if already set
         final_env_vars.setdefault("CONN_MANAGER_LOW_WATER", "100")
         final_env_vars.setdefault("CONN_MANAGER_HIGH_WATER", "400")
-        
+
         # Stream Pool Configuration (for centralized sequencer)
         final_env_vars.setdefault("MAX_STREAM_POOL_SIZE", "2")
         final_env_vars.setdefault("MAX_STREAM_QUEUE_SIZE", "1000")
@@ -321,10 +331,12 @@ def deploy_snapshotter_instance(
         final_env_vars.setdefault("STREAM_WRITE_TIMEOUT_MS", "5000")
         final_env_vars.setdefault("MAX_WRITE_RETRIES", "3")
         final_env_vars.setdefault("MAX_CONCURRENT_WRITES", "10")
-        final_env_vars.setdefault("STREAM_POOL_HEALTH_CHECK_INTERVAL", "60000")  # milliseconds
+        final_env_vars.setdefault(
+            "STREAM_POOL_HEALTH_CHECK_INTERVAL", "60000"
+        )  # milliseconds
         final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "300")
         final_env_vars.setdefault("WRITE_SEMAPHORE_TIMEOUT_SEC", "5")
-        
+
         # Mesh Submission Concurrency Controls
         # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
         # Respect existing values from namespaced env files if already set
@@ -334,10 +346,10 @@ def deploy_snapshotter_instance(
         final_env_vars.setdefault("MAX_MESH_PUBLISH_GOROUTINES", "500")
         # Maximum queued mesh submissions when rate limited
         final_env_vars.setdefault("MESH_PUBLISH_QUEUE_SIZE", "1000")
-        
+
         # Other Configuration
         final_env_vars["DATA_MARKET_IN_REQUEST"] = "true"
-        
+
         # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
         final_env_vars["PUBLIC_IP"] = ""
 
@@ -379,7 +391,7 @@ def deploy_snapshotter_instance(
     )  # Simplified default
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
-    
+
     # Normalize boolean env vars to lowercase AFTER all values are set
     # This handles cases where env files have "False" or "True" instead of "false" or "true"
     # Go's strconv.ParseBool is case-insensitive, but normalizing ensures consistency

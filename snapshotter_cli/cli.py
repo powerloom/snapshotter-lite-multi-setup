@@ -39,9 +39,7 @@ from .utils.models import (
 )
 from .utils.system_checks import is_docker_running, list_snapshotter_screen_sessions
 
-MARKETS_CONFIG_URL = (
-    "https://raw.githubusercontent.com/powerloom/curated-datamarkets/refs/heads/master/sources.json"
-)
+MARKETS_CONFIG_URL = "https://raw.githubusercontent.com/powerloom/curated-datamarkets/refs/heads/master/sources.json"
 
 
 def parse_selection_string(selection: str, max_value: int) -> List[int]:
@@ -764,8 +762,8 @@ def deploy(
 
         # Check if any selected market is BDS_DEVNET_ALPHA_UNISWAPV3 or BDS_MAINNET_UNISWAPV3 and set specific branch
         bds_market_selected = any(
-            market.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3" 
-            or market.name.upper() == "BDS_MAINNET_UNISWAPV3" 
+            market.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3"
+            or market.name.upper() == "BDS_MAINNET_UNISWAPV3"
             for market in selected_market_objects
         )
         if bds_market_selected:
@@ -988,11 +986,16 @@ def deploy(
                     f"{base_args} --data-market-contract-number {data_market_number}"
                 )
 
-                
                 # Add appropriate flag based on chain and market
-                if selected_powerloom_chain_name_upper == "DEVNET" and market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
+                if (
+                    selected_powerloom_chain_name_upper == "DEVNET"
+                    and market_name == "BDS_DEVNET_ALPHA_UNISWAPV3"
+                ):
                     build_sh_args_for_instance = f"--bds-dsv-devnet {base_args}"
-                elif selected_powerloom_chain_name_upper == "MAINNET" and market_name == "BDS_MAINNET_UNISWAPV3":
+                elif (
+                    selected_powerloom_chain_name_upper == "MAINNET"
+                    and market_name == "BDS_MAINNET_UNISWAPV3"
+                ):
                     build_sh_args_for_instance = f"--bds-dsv-mainnet {base_args}"
                 elif selected_powerloom_chain_name_upper == "DEVNET":
                     build_sh_args_for_instance = f"--devnet {base_args}"
@@ -1675,7 +1678,8 @@ def list_chains_and_markets(ctx: typer.Context):
             )
             # P2P mesh info when centralized sequencer is off (False or unset)
             if market_config_val.centralizedSequencerEnabled is not True and (
-                market_config_val.rendezvousPoint or market_config_val.gossipsubSnapshotSubmissionPrefix
+                market_config_val.rendezvousPoint
+                or market_config_val.gossipsubSnapshotSubmissionPrefix
             ):
                 market_branch_item.add("[dim]P2P mesh (centralized sequencer off)[/]")
                 if market_config_val.rendezvousPoint:
