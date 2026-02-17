@@ -762,10 +762,10 @@ def deploy(
         # Get LITE_NODE_BRANCH from namespaced env content or use default
         lite_node_branch = "main"  # default branch
 
-        # Check if any selected market is BDS_DEVNET_ALPHA_UNISWAPV3 or BDS_MAINNET_ALPHA_UNISWAPV3 and set specific branch
+        # Check if any selected market is BDS_DEVNET_ALPHA_UNISWAPV3 or BDS_MAINNET_UNISWAPV3 and set specific branch
         bds_market_selected = any(
             market.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3" 
-            or market.name.upper() == "BDS_MAINNET_ALPHA_UNISWAPV3" 
+            or market.name.upper() == "BDS_MAINNET_UNISWAPV3" 
             for market in selected_market_objects
         )
         if bds_market_selected:
@@ -977,7 +977,7 @@ def deploy(
                     data_market_number = "2"
                 elif market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
                     data_market_number = "1"
-                elif market_name == "BDS_MAINNET_ALPHA_UNISWAPV3":
+                elif market_name == "BDS_MAINNET_UNISWAPV3":
                     data_market_number = "1"
                 else:
                     # Default to 1 for unknown markets
@@ -992,8 +992,8 @@ def deploy(
                 # Add appropriate flag based on chain and market
                 if selected_powerloom_chain_name_upper == "DEVNET" and market_name == "BDS_DEVNET_ALPHA_UNISWAPV3":
                     build_sh_args_for_instance = f"--bds-dsv-devnet {base_args}"
-                elif selected_powerloom_chain_name_upper == "MAINNET" and market_name == "BDS_MAINNET_ALPHA_UNISWAPV3":
-                    build_sh_args_for_instance = f"--bds-dsv-mainnet-alpha {base_args}"
+                elif selected_powerloom_chain_name_upper == "MAINNET" and market_name == "BDS_MAINNET_UNISWAPV3":
+                    build_sh_args_for_instance = f"--bds-dsv-mainnet {base_args}"
                 elif selected_powerloom_chain_name_upper == "DEVNET":
                     build_sh_args_for_instance = f"--devnet {base_args}"
                 else:
