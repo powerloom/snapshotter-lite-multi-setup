@@ -40,7 +40,7 @@ from .utils.models import (
 from .utils.system_checks import is_docker_running, list_snapshotter_screen_sessions
 
 MARKETS_CONFIG_URL = (
-    "https://raw.githubusercontent.com/powerloom/curated-datamarkets/refs/heads/chore/mod-dsv-devnet-bootstrap/sources.json"
+    "https://raw.githubusercontent.com/powerloom/curated-datamarkets/refs/heads/master/sources.json"
 )
 
 
