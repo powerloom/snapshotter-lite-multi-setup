@@ -5,6 +5,29 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **BDS DSV Market Support** - Added support for `BDS_DEVNET_ALPHA_UNISWAPV3` and `BDS_MAINNET_UNISWAPV3` markets in deployment and CLI
+- **Commit ID Support** - Added support for config and compute packages commit IDs from sources.json in environment variables
+- **Deploy Command Slots Argument** - Added `--slots` argument to deploy command for comma-separated list of slot IDs
+- **Powerloom RPC URL Configuration** - Added Powerloom RPC URL prompt and selection process in configure command
+- **P2P Discovery and Connection Manager** - Added P2P Discovery and connection manager configuration for BDS-DSV deployments
+- **Centralized Sequencer Submission Switch** - Added support for centralized sequencer submission switch in local collector
+- **Active Profile Support in Deployment** - Added active profile support for environment configuration in deployment
+
+### Changed
+- **BDS DSV Mainnet** - CLI and lite node use `--bds-dsv-mainnet` only for mainnet BDS; lite node no longer supports mainnet-alpha (`--bds-dsv-mainnet-alpha` removed). Mainnet market is `BDS_MAINNET_UNISWAPV3` with P2P prefix/rendezvous `dsv-mainnet-bds`.
+- **Markets Config URL** - Updated MARKETS_CONFIG_URL to point to master branch of curated-datamarkets repository
+- **Gossipsub Configuration** - Refactored to parse gossipsub configuration from market config instead of hardcoded values
+- **Local Collector Repository Cloning** - Removed redundant local collector repository cloning from deployment logic (handled by lite node setup)
+
+### Fixed
+- **Configure Command Env Var Preservation** - Fixed configure command to preserve custom environment variables that are not part of the template
+- **Image Tags for BDS Markets** - Fixed enforcement of experimental image tags for LOCAL_COLLECTOR and IMAGE in BDS deployments
+- **Boolean Environment Variables** - Fixed normalization of boolean environment variables to lowercase for consistency
+- **POWERLOOM_CHAIN Variable** - Fixed POWERLOOM_CHAIN variable assignment in deployment
+
 ## [v0.2.0] - 2025-10-27
 
 ### Added
