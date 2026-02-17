@@ -23,6 +23,13 @@ powerloom-snapshotter> configure
 powerloom-snapshotter> deploy
 powerloom-snapshotter> list
 powerloom-snapshotter> status
+powerloom-snapshotter> check
+
+# Deploy specific slots (comma-separated)
+powerloom-snapshotter-cli deploy --env mainnet --slots 1234,5678,9012
+
+# Check slot status
+powerloom-snapshotter-cli check --env mainnet --profile default
 
 # Or with a specific profile:
 POWERLOOM_PROFILE=production powerloom-snapshotter-cli shell
@@ -127,6 +134,8 @@ powerloom-snapshotter-cli profile import updates.json --name wallet-alice --merg
 - **📋 Integrated Changelog**: View latest changes on shell startup, full changelog with `changelog` command
 - **Easy Configuration**: Set up credentials once for each chain/market combination
 - **Simple Deployment**: Deploy multiple nodes with a single command
+- **🎯 Targeted Deployment**: Deploy specific slots with `--slots 1234,5678,9012`
+- **📊 Slot Status Checker**: Compare owned slots vs running containers with `check` command
 - **Instance Management**: Deploy and monitor snapshotter nodes easily
 - **Cross-Platform**: Pre-built binaries for Linux (x86_64, ARM64) and macOS (ARM64)
 - **Native ARM64 Builds**: Uses GitHub's native ARM64 runners for 4x faster builds
@@ -159,6 +168,7 @@ powerloom-snapshotter-cli profile import updates.json --name wallet-alice --merg
       - [3.1.1 Stop and remove all powerloom containers](#311-stop-and-remove-all-powerloom-containers)
       - [3.1.2 Remove all Docker subnets assigned to the snapshotter-lite containers](#312-remove-all-docker-subnets-assigned-to-the-snapshotter-lite-containers)
       - [3.1.3 Cleanup stale images and networks and cache](#313-cleanup-stale-images-and-networks-and-cache)
+    - [3.2 Check Slot Status](#32-check-slot-status)
   - [4. Case studies](#4-case-studies)
     - [4.1 Deploy subsets of slots with different configs](#41-deploy-subsets-of-slots-with-different-configs)
     - [4.2 Running Slots from Different Wallets on a Single VPS](#42-running-slots-from-different-wallets-on-a-single-vps)
@@ -376,6 +386,7 @@ Available flags:
 - `--data-market {1,2}`: Choose the data market (1: AAVEV3, 2: UNISWAPV2)
 - `-y, --yes`: Deploy all nodes without prompting for confirmation
 - `--latest-only`: Deploy only the latest (highest) slot
+- `--slots SLOT_IDS`: Deploy specific slots (comma-separated list, e.g., `--slots 1234,5678,9012`)
 - `--use-env-connection-refresh-interval`: Use CONNECTION_REFRESH_INTERVAL_SEC from environment instead of calculating based on slots
 - `--parallel-workers N`: Number of parallel workers for deployment (1-8, default: auto-detect based on CPU cores)
 - `--sequential`: Disable parallel deployment and use sequential mode (backward compatibility)
@@ -419,6 +430,12 @@ uv run python multi_clone.py --sequential -y
 # Deploy only the latest slot
 uv run python multi_clone.py --latest-only
 
+# Deploy specific slots (comma-separated list)
+uv run python multi_clone.py --slots 1234,5678,9012
+
+# Deploy specific slots with custom parallel workers
+uv run python multi_clone.py --slots 1234,5678,9012,4567,8901 --parallel-workers 4
+
 # Use environment variable set at shell prompt for connection refresh interval
 CONNECTION_REFRESH_INTERVAL_SEC=300 uv run python multi_clone.py --use-env-connection-refresh-interval
 
@@ -446,7 +463,34 @@ uv run python multi_clone.py --use-env-connection-refresh-interval
 
 When you run the deploy script without any flags, it will ask you if you want to deploy all nodes? If you want to [Deploy a subset of slots](#221-deploy-a-subset-of-slots) then press `n` else you want to [Deploy all slots](#222-deploy-all-slots) press `y`.
 
+Alternatively, you can use the `--slots` flag to [Deploy specific slots](#2211-deploy-specific-slots-using-slots-flag) directly from the command line.
+
 #### 2.2.1 Deploy a subset of slots
+
+##### 2.2.1.1 Deploy specific slots using --slots flag
+
+The `--slots` flag allows you to deploy specific slots directly from the command line without interactive prompts:
+
+```bash
+# Deploy specific slots by ID
+uv run python multi_clone.py --slots 1234,5678,9012
+
+# Combine with other flags
+uv run python multi_clone.py --slots 1234,5678,9012 --parallel-workers 4
+```
+
+**Key features:**
+- Non-interactive: No prompts, just specify the slots you want
+- Validation: The script validates that all specified slots are owned by your wallet
+- Error handling: Clear error messages if any slot IDs are invalid or duplicate
+- Flexible: Can be combined with other flags like `--parallel-workers`, `--sequential`, etc.
+
+**Notes:**
+- Cannot be used with `--yes` (deploy all) or `--latest-only` flags
+- Slot IDs must be comma-separated with no spaces (or spaces will be stripped)
+- The script will verify that all specified slots exist in your wallet before deployment
+
+##### 2.2.1.2 Deploy a subset using interactive mode
 
 Enter `n` when asked if you want to deploy all slots. Proceed with the begin and end slot IDs for your deployment.
 
@@ -710,6 +754,73 @@ Total reclaimed space: 1.614GB
 
 ✅ Diagnostic check complete
 ```
+
+### 3.2 Check Slot Status
+
+You can quickly check which slots are running and which are not using either the CLI command or standalone script:
+
+**Using CLI (Recommended):**
+```bash
+# Check using wallet from profile
+snapshotter check --env mainnet --profile wallet-alice
+
+# Check using wallet address directly
+snapshotter check --env mainnet --wallet 0x123...
+
+# Filter by market
+snapshotter check --env devnet --market UNISWAPV2 --profile default
+```
+
+**Using Standalone Script:**
+```bash
+uv run python check_slots.py
+```
+
+These tools will:
+- Connect to the Powerloom protocol to fetch all slots owned by your wallet
+- Check which Docker containers are currently running
+- Compare the two lists and show you detailed status
+- Identify any potential issues (containers without screens, etc.)
+
+**Example output:**
+
+```
+🔍 Checking slot status...
+
+✅ Connected to Powerloom RPC (block: 12345678)
+📋 Fetching slots for wallet: 0x1234...
+✅ Found 50 total slots
+
+🐳 Checking running Docker containers...
+📺 Checking screen sessions...
+
+================================================================================
+📊 SLOT STATUS SUMMARY
+================================================================================
+
+✅ Running slots: 48
+   1234, 1235, 1236, 1237, 1238, 1239, 1240, 1241, 1242, 1243
+   1244, 1245, ...
+
+❌ Not running slots: 2
+   1250, 1251
+
+================================================================================
+Total slots owned: 50
+Currently running: 48 (96.0%)
+Not running: 2 (4.0%)
+================================================================================
+```
+
+**Exit codes:**
+- `0`: All slots are running successfully
+- `1`: Some slots are not running (useful for automation/monitoring)
+
+This is particularly useful for:
+- Monitoring your deployment health
+- Identifying which specific slots need attention
+- Integrating with monitoring systems (via exit codes)
+- Quick status checks without manual container inspection
 
 If you encounter any issues, please contact us on [discord](https://discord.com/invite/powerloom).
 

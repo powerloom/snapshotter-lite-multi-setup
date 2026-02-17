@@ -267,7 +267,7 @@ def get_active_profile(explicit_profile: Optional[str] = None) -> str:
     # Check config for default profile (set by 'profile set-default')
     config = ProfileConfig()
     default = config.get_default_profile()
-    if default != DEFAULT_PROFILE and profile_exists(default):
+    if profile_exists(default):
         return default
 
     # Check for last used profile

@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- **CLI `check` command** - New command to compare wallet-owned slots against running containers, showing running/not-running status, detecting orphaned sessions, and providing deployment hints
+- **--slots flag (multi_clone.py)** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
+- **check_slots.py script** - Monitor deployment health by comparing owned slots vs running containers with detailed statistics
 - **BDS DSV Market Support** - Added support for `BDS_DEVNET_ALPHA_UNISWAPV3` and `BDS_MAINNET_UNISWAPV3` markets in deployment and CLI
 - **Commit ID Support** - Added support for config and compute packages commit IDs from sources.json in environment variables
 - **Deploy Command Slots Argument** - Added `--slots` argument to deploy command for comma-separated list of slot IDs
@@ -27,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Image Tags for BDS Markets** - Fixed enforcement of experimental image tags for LOCAL_COLLECTOR and IMAGE in BDS deployments
 - **Boolean Environment Variables** - Fixed normalization of boolean environment variables to lowercase for consistency
 - **POWERLOOM_CHAIN Variable** - Fixed POWERLOOM_CHAIN variable assignment in deployment
+- **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
+- **Profile set-default to "default"** - Fixed bug where `profile set-default default` didn't properly switch to the default profile in shell mode
+
 
 ## [v0.2.0] - 2025-10-27
 
