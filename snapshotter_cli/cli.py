@@ -1312,7 +1312,19 @@ def list_chains_and_markets(ctx: typer.Context):
             market_branch_item.add(
                 f"[dim]Market Protocol State: {market_config_val.powerloomProtocolStateContractAddress}[/]"
             )
-            market_branch_item.add(f"[dim]Sequencer: {market_config_val.sequencer}[/]")
+            # P2P mesh info when centralized sequencer is off (False or unset)
+            if market_config_val.centralizedSequencerEnabled is not True and (
+                market_config_val.rendezvousPoint or market_config_val.gossipsubSnapshotSubmissionPrefix
+            ):
+                market_branch_item.add("[dim]P2P mesh (centralized sequencer off)[/]")
+                if market_config_val.rendezvousPoint:
+                    market_branch_item.add(
+                        f"[dim]  Rendezvous: {market_config_val.rendezvousPoint}[/]"
+                    )
+                if market_config_val.gossipsubSnapshotSubmissionPrefix:
+                    market_branch_item.add(
+                        f"[dim]  Gossipsub prefix: {market_config_val.gossipsubSnapshotSubmissionPrefix}[/]"
+                    )
             market_branch_item.add(
                 f"[dim]Compute: {str(market_config_val.compute.repo)} ({market_config_val.compute.branch}) Commit: {market_config_val.compute.commit[:7] if market_config_val.compute.commit else 'N/A'}[/]"
             )
