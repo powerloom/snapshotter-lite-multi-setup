@@ -117,6 +117,9 @@ def deploy_snapshotter_instance(
     source_chain_rpc_url: str,  # RPC URL for the market's source chain (e.g., ETH-MAINNET RPC)
     base_snapshotter_lite_repo_path: Path,  # New parameter for the path to the base clone
     build_sh_args_param: str,  # New parameter for dynamic build.sh arguments
+    active_profile: Optional[
+        str
+    ] = None,  # Optional profile name to load env from profile directory
 ) -> bool:
     """
     Deploys a single snapshotter-lite-v2 instance for a given slot and market.
@@ -186,6 +189,7 @@ def deploy_snapshotter_instance(
         console.print(
             f"    ✅ Base snapshotter copied successfully.", style="dim green"
         )
+        # Note: Local collector repository cloning is handled by build.sh, not here
     except Exception as e:
         console.print(
             f"  ❌ Error copying base snapshotter files from {base_snapshotter_lite_repo_path} to {instance_dir}: {e}",
@@ -210,36 +214,143 @@ def deploy_snapshotter_instance(
         norm_source_chain_name_for_file,
     )
 
-    # First check in config directory
-    config_file_path = CONFIG_DIR / potential_config_filename
-    if config_file_path.exists():
-        console.print(
-            f"  ℹ️ Found pre-configured .env template in config directory: {config_file_path}. Loading it.",
-            style="dim",
+    # Check profile directory first (if active_profile is provided)
+    # This follows the same pattern used in cli.py for loading profile envs
+    config_file_path = None
+    if active_profile:
+        from snapshotter_cli.utils.profile import get_profile_env_path
+
+        profile_config_path = get_profile_env_path(
+            active_profile,
+            norm_pl_chain_name_for_file,
+            norm_market_name_for_file,
+            norm_source_chain_name_for_file,
         )
-        final_env_vars.update(parse_env_file_vars(str(config_file_path)))
-    else:
-        # Check current directory for backward compatibility
-        cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
-        if cwd_config_file_path.exists():
+        if profile_config_path.exists():
+            config_file_path = profile_config_path
             console.print(
-                f"  ⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to {CONFIG_DIR}",
-                style="yellow",
-            )
-            final_env_vars.update(parse_env_file_vars(str(cwd_config_file_path)))
-        else:
-            console.print(
-                f"  ℹ️ No pre-configured .env template found. Using minimal core settings.",
+                f"  ℹ️ Found pre-configured .env template in profile '{active_profile}': {config_file_path}. Loading it.",
                 style="dim",
             )
+            final_env_vars.update(parse_env_file_vars(str(config_file_path)))
+
+    # Fallback to legacy CONFIG_DIR if profile file not found
+    if not config_file_path or not config_file_path.exists():
+        legacy_config_file_path = CONFIG_DIR / potential_config_filename
+        if legacy_config_file_path.exists():
+            console.print(
+                f"  ℹ️ Found pre-configured .env template in legacy config directory: {legacy_config_file_path}. Loading it.",
+                style="dim",
+            )
+            final_env_vars.update(parse_env_file_vars(str(legacy_config_file_path)))
+        else:
+            # Check current directory for backward compatibility
+            cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
+            if cwd_config_file_path.exists():
+                console.print(
+                    f"  ⚠️ Found legacy env file in current directory: {cwd_config_file_path}. Consider moving it to profile directory.",
+                    style="yellow",
+                )
+                final_env_vars.update(parse_env_file_vars(str(cwd_config_file_path)))
+            else:
+                console.print(
+                    f"  ℹ️ No pre-configured .env template found. Using minimal core settings.",
+                    style="dim",
+                )
 
     # 2. Set essential/resolved values (these take highest precedence and will overwrite template if keys conflict)
     final_env_vars["OVERRIDE_DEFAULTS"] = "true"
     final_env_vars["SLOT_ID"] = str(slot_id)
     final_env_vars["SIGNER_ACCOUNT_ADDRESS"] = signer_address
     final_env_vars["SIGNER_ACCOUNT_PRIVATE_KEY"] = signer_private_key
-    final_env_vars["POWERLOOM_RPC_URL"] = str(powerloom_chain_config.rpcURL).rstrip("/")
+    # Namespaced env takes precedence; otherwise use chain config
+    final_env_vars.setdefault(
+        "POWERLOOM_RPC_URL", str(powerloom_chain_config.rpcURL).rstrip("/")
+    )
     final_env_vars["SOURCE_RPC_URL"] = source_chain_rpc_url
+
+    # Apply mesh/P2P defaults from market config when present (namespaced env still wins)
+    if market_config.rendezvousPoint:
+        final_env_vars.setdefault("RENDEZVOUS_POINT", market_config.rendezvousPoint)
+    if market_config.gossipsubSnapshotSubmissionPrefix:
+        final_env_vars.setdefault(
+            "GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX",
+            market_config.gossipsubSnapshotSubmissionPrefix,
+        )
+    if market_config.centralizedSequencerEnabled is not None:
+        # Convert boolean to lowercase string
+        centralized_seq_enabled_str = str(
+            market_config.centralizedSequencerEnabled
+        ).lower()
+        final_env_vars.setdefault(
+            "CENTRALIZED_SEQUENCER_ENABLED", centralized_seq_enabled_str
+        )
+
+    # Add BDS-specific environment variables for BDS markets
+    # Note: DEV_MODE not forced - user controls via namespaced env file
+    # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
+    # For production deployments (DEV_MODE not set), use pre-built images
+    if market_config.name.upper() in (
+        "BDS_DEVNET_ALPHA_UNISWAPV3",
+        "BDS_MAINNET_UNISWAPV3",
+    ):
+        # For BDS deployments, force lite node and local collector image tags to master
+        final_env_vars["IMAGE_TAG"] = "master"
+        final_env_vars["LOCAL_COLLECTOR_IMAGE_TAG"] = "master"
+        final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
+        # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
+        final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
+
+        # P2P Discovery parameters are pulled from sources.json via setdefault calls above (lines 270-282)
+        # RENDEZVOUS_POINT, GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX, and CENTRALIZED_SEQUENCER_ENABLED
+        # are already set from market_config values, so we don't override them here
+
+        # Extract bootstrap nodes from market config (from curated datamarkets JSON)
+        if market_config.bootstrapNodes and len(market_config.bootstrapNodes) > 0:
+            final_env_vars["BOOTSTRAP_NODE_ADDRS"] = ",".join(
+                market_config.bootstrapNodes
+            )
+        else:
+            console.print(
+                f"  ⚠️ No bootstrap nodes found in market config for {market_config.name}. BOOTSTRAP_NODE_ADDRS will not be set.",
+                style="yellow",
+            )
+            # Don't set BOOTSTRAP_NODE_ADDRS if not found - let it be undefined/empty
+
+        # Connection manager configuration (required for dsv-p2p branch local collector)
+        # Using permissive values (100/400) for publisher role to prevent aggressive pruning
+        # Respect existing values from namespaced env files if already set
+        final_env_vars.setdefault("CONN_MANAGER_LOW_WATER", "100")
+        final_env_vars.setdefault("CONN_MANAGER_HIGH_WATER", "400")
+
+        # Stream Pool Configuration (for centralized sequencer)
+        final_env_vars.setdefault("MAX_STREAM_POOL_SIZE", "2")
+        final_env_vars.setdefault("MAX_STREAM_QUEUE_SIZE", "1000")
+        final_env_vars.setdefault("STREAM_HEALTH_CHECK_TIMEOUT_MS", "5000")
+        final_env_vars.setdefault("STREAM_WRITE_TIMEOUT_MS", "5000")
+        final_env_vars.setdefault("MAX_WRITE_RETRIES", "3")
+        final_env_vars.setdefault("MAX_CONCURRENT_WRITES", "10")
+        final_env_vars.setdefault(
+            "STREAM_POOL_HEALTH_CHECK_INTERVAL", "60000"
+        )  # milliseconds
+        final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "300")
+        final_env_vars.setdefault("WRITE_SEMAPHORE_TIMEOUT_SEC", "5")
+
+        # Mesh Submission Concurrency Controls
+        # Rate limiting for mesh submissions to prevent overwhelming the gossipsub network
+        # Respect existing values from namespaced env files if already set
+        final_env_vars.setdefault("MESH_SUBMISSION_RATE_LIMIT", "100")
+        final_env_vars.setdefault("MESH_SUBMISSION_BURST_SIZE", "200")
+        # Maximum concurrent mesh publish operations (goroutine limit)
+        final_env_vars.setdefault("MAX_MESH_PUBLISH_GOROUTINES", "500")
+        # Maximum queued mesh submissions when rate limited
+        final_env_vars.setdefault("MESH_PUBLISH_QUEUE_SIZE", "1000")
+
+        # Other Configuration
+        final_env_vars["DATA_MARKET_IN_REQUEST"] = "true"
+
+        # PUBLIC_IP left blank for publisher role (lite nodes can run from low-powered instances)
+        final_env_vars["PUBLIC_IP"] = ""
 
     final_env_vars["DATA_MARKET_CONTRACT"] = market_config.contractAddress
     final_env_vars["PROTOCOL_STATE_CONTRACT"] = (
@@ -247,11 +358,17 @@ def deploy_snapshotter_instance(
     )
     final_env_vars["SNAPSHOT_CONFIG_REPO"] = str(market_config.config.repo)
     final_env_vars["SNAPSHOT_CONFIG_REPO_BRANCH"] = market_config.config.branch
+    # Set commit ID if available (from sources.json)
+    if market_config.config.commit:
+        final_env_vars["SNAPSHOT_CONFIG_REPO_COMMIT"] = market_config.config.commit
 
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO"] = str(market_config.compute.repo)
     final_env_vars["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = market_config.compute.branch
+    # Set commit ID if available (from sources.json)
+    if market_config.compute.commit:
+        final_env_vars["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = market_config.compute.commit
 
-    final_env_vars["POWERLOOM_CHAIN"] = pl_chain_name_upper
+    final_env_vars["POWERLOOM_CHAIN"] = norm_pl_chain_name
     final_env_vars["NAMESPACE"] = market_name_upper
     final_env_vars["SOURCE_CHAIN"] = source_chain_prefix_upper
     final_env_vars["FULL_NAMESPACE"] = env_file_suffix
@@ -263,13 +380,29 @@ def deploy_snapshotter_instance(
     final_env_vars.setdefault(
         "MAX_STREAM_POOL_SIZE", "2"
     )  # Default from multi_clone, may need adjustment based on CPU as in multi_clone
-    final_env_vars.setdefault("STREAM_POOL_HEALTH_CHECK_INTERVAL", "30")
+    # STREAM_POOL_HEALTH_CHECK_INTERVAL is in milliseconds (default: 60000 = 60 seconds)
+    # Only set default if not already set (BDS deployments will override with correct value)
+    if "STREAM_POOL_HEALTH_CHECK_INTERVAL" not in final_env_vars:
+        final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"
     final_env_vars.setdefault("DATA_MARKET_IN_REQUEST", "false")
     final_env_vars.setdefault(
         "LOCAL_COLLECTOR_IMAGE_TAG", "latest"
     )  # Simplified default
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
+
+    # Normalize boolean env vars to lowercase AFTER all values are set
+    # This handles cases where env files have "False" or "True" instead of "false" or "true"
+    # Go's strconv.ParseBool is case-insensitive, but normalizing ensures consistency
+    boolean_env_vars = [
+        "CENTRALIZED_SEQUENCER_ENABLED",
+        "DEV_MODE",
+        "DATA_MARKET_IN_REQUEST",
+    ]
+    for var in boolean_env_vars:
+        if var in final_env_vars:
+            # Convert to string first (handles bool values from market_config), then lowercase
+            final_env_vars[var] = str(final_env_vars[var]).lower()
 
     # TELEGRAM_REPORTING_URL and TELEGRAM_CHAT_ID will be included if they were in the pre-configured .env
     # or global env vars that got loaded into namespaced_env_content (passed to get_credential originally).

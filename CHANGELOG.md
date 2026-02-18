@@ -8,14 +8,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **CLI `--slots` flag** - Deploy specific slots via comma-separated list in CLI (e.g., `snapshotter deploy --slots 1234,5678,9012`)
+
 - **CLI `check` command** - New command to compare wallet-owned slots against running containers, showing running/not-running status, detecting orphaned sessions, and providing deployment hints
 - **--slots flag (multi_clone.py)** - Deploy specific slots via comma-separated list (e.g., `--slots 1234,5678,9012`)
 - **check_slots.py script** - Monitor deployment health by comparing owned slots vs running containers with detailed statistics
+- **BDS DSV Market Support** - Added support for `BDS_DEVNET_ALPHA_UNISWAPV3` and `BDS_MAINNET_UNISWAPV3` markets in deployment and CLI
+- **Commit ID Support** - Added support for config and compute packages commit IDs from sources.json in environment variables
+- **Powerloom RPC URL Configuration** - Added Powerloom RPC URL prompt and selection process in configure command
+- **P2P Discovery and Connection Manager** - Added P2P Discovery and connection manager configuration for BDS-DSV deployments
+- **Centralized Sequencer Submission Switch** - Added support for centralized sequencer submission switch in local collector
+- **Active Profile Support in Deployment** - Added active profile support for environment configuration in deployment
+
+### Changed
+- **BDS DSV Mainnet** - CLI and lite node use `--bds-dsv-mainnet` for mainnet BDS; and `--bds-dsv-devnet` for devnet BDS. Mainnet market is `BDS_MAINNET_UNISWAPV3` with P2P prefix/rendezvous `dsv-mainnet-bds`. Devnet market is `BDS_DEVNET_ALPHA_UNISWAPV3` with P2P prefix/rendezvous `dsv-devnet-alpha`.
+- **Markets Config URL** - Updated MARKETS_CONFIG_URL to point to master branch of curated-datamarkets repository
+- **Gossipsub Configuration** - Refactored to parse gossipsub configuration from market config instead of hardcoded values
+- **Local Collector Repository Cloning** - Removed redundant local collector repository cloning from deployment logic (handled by lite node setup)
 
 ### Fixed
+- **Configure Command Env Var Preservation** - Fixed configure command to preserve custom environment variables that are not part of the template
+- **Image Tags for BDS Markets** - Fixed enforcement of experimental image tags for LOCAL_COLLECTOR and IMAGE in BDS deployments
+- **Boolean Environment Variables** - Fixed normalization of boolean environment variables to lowercase for consistency
+- **POWERLOOM_CHAIN Variable** - Fixed POWERLOOM_CHAIN variable assignment in deployment
 - **Failed deployments display** - "Actually failed deployments" now shows complete list instead of truncating to first 10
 - **Profile set-default to "default"** - Fixed bug where `profile set-default default` didn't properly switch to the default profile in shell mode
+
 
 ## [v0.2.0] - 2025-10-27
 
