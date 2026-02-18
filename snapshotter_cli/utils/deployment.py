@@ -294,7 +294,8 @@ def deploy_snapshotter_instance(
         "BDS_DEVNET_ALPHA_UNISWAPV3",
         "BDS_MAINNET_UNISWAPV3",
     ):
-        # For BDS deployments, force local collector image tag to master
+        # For BDS deployments, force lite node and local collector image tags to master
+        final_env_vars["IMAGE_TAG"] = "master"
         final_env_vars["LOCAL_COLLECTOR_IMAGE_TAG"] = "master"
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
