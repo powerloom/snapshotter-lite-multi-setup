@@ -1,6 +1,6 @@
 # DSV Mainnet: Snapshotter Lite Node Setup Instructions, Rewards and What's Next
 
-⚠️ *This guide requires the snapshotter CLI to be installed and configured. Please refer to the [Snapshotter CLI documentation](https://github.com/powerloom/snapshotter-lite-multi-setup/blob/31e077b7143eab7e9675043305a3615530f61da1/CLI_DOCUMENTATION.md) for complete installation and usage instructions.*
+⚠️ *This guide requires the snapshotter CLI to be installed and configured. Please refer to the [Snapshotter CLI documentation](../CLI_DOCUMENTATION.md) for complete installation and usage instructions.*
 
 ⚠️ 😤 *If you are impatient, please skip to the [Appendix: Install the snapshotter CLI](#appendix-install-the-snapshotter-cli) section for quick instructions.*
 
@@ -32,7 +32,7 @@ uv run powerloom-snapshotter-cli configure --env mainnet --market BDS_MAINNET_UN
 ## Deploy the snapshotter lite node(s)
 
 ```bash
-uv run powerloom-snapshotter-cli deploy --env mainnet --market BDS_MAINNET_UNISWAPV3 
+uv run powerloom-snapshotter-cli deploy --env mainnet --market BDS_MAINNET_UNISWAPV3
 
 🐳 Docker daemon is running.
 🚀 Deploying to environment: MAINNET...
@@ -199,15 +199,15 @@ Head to the latest [release page](https://github.com/powerloom/snapshotter-lite-
 
 The typical installation path is to copy the downloaded binary to `/usr/local/bin/powerloom-snapshotter-cli` or `/usr/local/bin/snapshotter` and make it executable.
 
-For example, if you are on an x86_64 Linux machine and `v0.2.0` is the latest release, these would be the commands to install the CLI:
+For example, if you are on an x86_64 Linux machine and `v0.3.0` is the latest release, these would be the commands to install the CLI:
 ```bash
-wget https://github.com/powerloom/snapshotter-lite-multi-setup/releases/download/v0.2.0/powerloom-snapshotter-cli-linux-amd64
+wget https://github.com/powerloom/snapshotter-lite-multi-setup/releases/download/v0.3.0/powerloom-snapshotter-cli-linux-amd64
 chmod +x powerloom-snapshotter-cli-linux-amd64
 sudo mv powerloom-snapshotter-cli-linux-amd64 /usr/local/bin/powerloom-snapshotter-cli
 ```
 
 > [!TIP]
-> 📚 **Complete instructions on using pre-built snapshotter CLI binary are also available in the [Snapshotter CLI documentation](https://github.com/powerloom/snapshotter-lite-multi-setup/blob/master/CLI_DOCUMENTATION.md#using-pre-built-binaries-recommended).**
+> 📚 **Complete instructions on using pre-built snapshotter CLI binary are also available in the [Snapshotter CLI documentation](../CLI_DOCUMENTATION.md#using-pre-built-binaries-recommended).**
 
 > [!WARNING]
 > If you are not sure about the architecture of your platform (for eg., ARM64 vs x86_64), it is recommended to use the `uv` package manager with the bundled installer as detailed below to install the CLI.
@@ -281,11 +281,11 @@ snapshotter --help
 
 You should see the following output:
 ```bash
- Usage: powerloom-snapshotter-cli [OPTIONS] COMMAND [ARGS]...                                                                                                                           
-                                                                                                                                                                                        
- Powerloom Snapshotter Node Management CLI                                                                                                                                              
-                                                                                                                                                                                        
-                                                                                                                                                                                        
+ Usage: powerloom-snapshotter-cli [OPTIONS] COMMAND [ARGS]...  
+
+ Powerloom Snapshotter Node Management CLI  
+
+
 ╭─ Options ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ --version            Show version and exit.                                                                                                                                          │
 │ --changelog          Show changelog and exit.                                                                                                                                        │

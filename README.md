@@ -2,7 +2,7 @@
 
 ## 🚀 New: DSV Mainnet is ready for deployment
 
-Refer to [DSV Mainnet Setup](DSV_MAINNET_SETUP.md) for more details.
+Refer to [DSV Mainnet Setup](docs/DSV_MAINNET_SETUP.md) for more details.
 
 ## Powerloom Snapshotter CLI
 
