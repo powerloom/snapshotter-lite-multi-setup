@@ -1,6 +1,10 @@
 # Multi node setup for multiple Powerloom Snapshotter Lite: Protocol V2 slot holders on Linux VPS
 
-## 🚀 New: Powerloom Snapshotter CLI
+## 🚀 New: DSV Mainnet is ready for deployment
+
+Refer to [DSV Mainnet Setup](docs/DSV_MAINNET_SETUP.md) for more details.
+
+## Powerloom Snapshotter CLI
 
 We now offer a powerful command-line interface (CLI) tool that simplifies node management:
 
