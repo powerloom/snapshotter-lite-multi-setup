@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Slot ownership validation for `--slot`/`--slots` flags (#101)** - Deploy command now validates that explicitly provided slot IDs are owned by the wallet before deploying, matching the validation already present in the interactive path and legacy `multi_clone.py`. Previously, unowned slots passed via flags would silently attempt deployment and fail.
+
 ### Improved
 - **Configure command prompt UX** - Replaced confusing empty `()` brackets with explicit hints: `(required)`, `(optional, leave blank to skip)`, `(current: value, press Enter to keep)` when overwriting, and `(default: value, press Enter to use)` for built-in defaults. Makes first-time setup vs reconfiguration clearer.
 

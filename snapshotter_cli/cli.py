@@ -627,16 +627,51 @@ def deploy(
             raise typer.Exit(1)
 
         deploy_slots: Optional[List[int]] = slots
-        if not deploy_slots:
+
+        # Get protocol state contract address from the first market
+        # (needed for slot validation in both provided and interactive paths)
+        first_market = next(iter(env_config.markets.values()))
+        protocol_state_contract_address = (
+            first_market.powerloomProtocolStateContractAddress
+        )
+
+        if deploy_slots:
+            # Validate provided slots are owned by the wallet
+            console.print(
+                f"ℹ️ Validating provided slots against wallet {final_wallet_address}...",
+                style="dim",
+            )
+            fetched_slots_result = fetch_owned_slots(
+                wallet_address=final_wallet_address,
+                powerloom_chain_name=env_config.chain_config.name,
+                rpc_url=str(env_config.chain_config.rpcURL).rstrip("/"),
+                protocol_state_contract_address=protocol_state_contract_address,
+            )
+            if fetched_slots_result is None:
+                console.print(
+                    "❌ Could not fetch owned slots for validation.",
+                    style="bold red",
+                )
+                raise typer.Exit(1)
+            invalid_slots = [s for s in deploy_slots if s not in fetched_slots_result]
+            if invalid_slots:
+                console.print(
+                    f"❌ The following slots are not owned by wallet {final_wallet_address}: {invalid_slots}",
+                    style="bold red",
+                )
+                console.print(
+                    f"   Owned slots: {fetched_slots_result}",
+                    style="dim",
+                )
+                raise typer.Exit(1)
+            console.print(
+                "✅ All provided slots validated as owned.",
+                style="green",
+            )
+        elif not deploy_slots:
             console.print(
                 f"ℹ️ No specific slots provided. Fetching all slots owned by {final_wallet_address} on {env_config.chain_config.name}...",
                 style="dim",
-            )
-
-            # Get protocol state contract address from the first market
-            first_market = next(iter(env_config.markets.values()))
-            protocol_state_contract_address = (
-                first_market.powerloomProtocolStateContractAddress
             )
 
             fetched_slots_result = fetch_owned_slots(
