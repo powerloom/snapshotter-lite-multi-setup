@@ -36,10 +36,14 @@ def config_prompt(
         hint = "(current: set, press Enter to keep)"
     elif has_current:
         # Truncate long values for display
-        display = current_value if len(current_value) <= 50 else current_value[:47] + "..."
+        display = (
+            current_value if len(current_value) <= 50 else current_value[:47] + "..."
+        )
         hint = f"(current: {display}, press Enter to keep)"
     elif has_builtin_default:
-        display = default_value if len(default_value) <= 60 else default_value[:57] + "..."
+        display = (
+            default_value if len(default_value) <= 60 else default_value[:57] + "..."
+        )
         hint = f"(default: {display}, press Enter to use)"
     elif optional:
         hint = "(optional, leave blank to skip)"
