@@ -202,9 +202,9 @@ Head to the latest [release page](https://github.com/powerloom/snapshotter-lite-
 
 The typical installation path is to copy the downloaded binary to `/usr/local/bin/powerloom-snapshotter-cli` or `/usr/local/bin/snapshotter` and make it executable.
 
-For example, if you are on an x86_64 Linux machine and `v0.3.0` is the latest release, these would be the commands to install the CLI:
+For example, if you are on an x86_64 Linux machine and `v0.3.1` is the latest release, these would be the commands to install the CLI:
 ```bash
-wget https://github.com/powerloom/snapshotter-lite-multi-setup/releases/download/v0.3.0/powerloom-snapshotter-cli-linux-amd64
+wget https://github.com/powerloom/snapshotter-lite-multi-setup/releases/download/v0.3.1/powerloom-snapshotter-cli-linux-amd64
 chmod +x powerloom-snapshotter-cli-linux-amd64
 sudo mv powerloom-snapshotter-cli-linux-amd64 /usr/local/bin/powerloom-snapshotter-cli
 ```

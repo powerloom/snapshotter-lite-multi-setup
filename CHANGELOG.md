@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [v0.3.1] - 2026-02-26
+
 ### Fixed
 - **Slot ownership validation for `--slot`/`--slots` flags (#101)** - Deploy command now validates that explicitly provided slot IDs are owned by the wallet before deploying, matching the validation already present in the interactive path and legacy `multi_clone.py`. Previously, unowned slots passed via flags would silently attempt deployment and fail.
 
@@ -161,6 +163,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[v0.3.1]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.3.1
 [v0.3.0]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.3.0
 [v0.2.0]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.2.0
 [v0.1.6]: https://github.com/powerloom/snapshotter-lite-multi-setup/releases/tag/v0.1.6
