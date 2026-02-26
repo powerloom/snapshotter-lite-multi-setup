@@ -18,12 +18,15 @@ uv run powerloom-snapshotter-cli configure --env mainnet --market BDS_MAINNET_UN
 ```
 
 ```bash
-👉 Enter slot NFT holder wallet address (0x...) (): <slot NFT holder wallet address>
-👉 Enter SNAPSHOTTER signer address (0x...) (): <SNAPSHOTTER signer address>
-👉 Enter signer private key (): <signer private key>
-👉 Enter RPC URL for ETH-MAINNET (): <ETH-MAINNET RPC URL>
-👉 Enter Telegram chat ID (optional) (): <Telegram chat ID can be left blank>
-👉 Enter local collector P2P port (for gossipsub mesh communication) (8001): <local collector P2P port. Can be left blank, default is 8001>
+# First-time setup: prompts show (required) or (optional, leave blank to skip)
+# Reconfiguring: prompts show (current: value, press Enter to keep) or (default: value, press Enter to use)
+👉 Enter slot NFT holder wallet address (0x...) (required): <slot NFT holder wallet address>
+👉 Enter SNAPSHOTTER signer address (0x...) (required): <SNAPSHOTTER signer address>
+👉 Enter signer private key (required): <signer private key>
+👉 Enter RPC URL for ETH-MAINNET (required): <ETH-MAINNET RPC URL>
+👉 Enter Powerloom RPC URL (default: https://rpc-v2.powerloom.network, press Enter to use): <or press Enter>
+👉 Enter Telegram chat ID (optional, leave blank to skip): <or leave blank>
+👉 Enter local collector P2P port (for gossipsub mesh communication) (default: 8001, press Enter to use): <or press Enter>
 ✅ Created /root/.powerloom-snapshotter-cli/profiles/bds-mainnet-uniswapv3/.env.mainnet.bds_mainnet_uniswapv3.eth_mainnet with following values:
 ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────── Environment File Contents ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
 < Your environment file contents >

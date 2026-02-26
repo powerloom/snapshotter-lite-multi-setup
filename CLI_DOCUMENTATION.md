@@ -209,7 +209,7 @@ All regular CLI commands work in shell mode, plus:
 
 ### configure
 
-Set up credentials and settings for a specific chain and data market combination.
+Set up credentials and settings for a specific chain and data market combination. Prompts use clear hints: `(required)`, `(optional, leave blank to skip)`, `(current: value, press Enter to keep)` when reconfiguring, and `(default: value, press Enter to use)` for built-in defaults.
 
 ```bash
 powerloom-snapshotter-cli configure [OPTIONS]

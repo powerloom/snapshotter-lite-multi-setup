@@ -5,6 +5,11 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Improved
+- **Configure command prompt UX** - Replaced confusing empty `()` brackets with explicit hints: `(required)`, `(optional, leave blank to skip)`, `(current: value, press Enter to keep)` when overwriting, and `(default: value, press Enter to use)` for built-in defaults. Makes first-time setup vs reconfiguration clearer.
+
 ## [v0.3.0] - 2026-02-24
 
 ### Added
