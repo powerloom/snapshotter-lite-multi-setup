@@ -7,7 +7,7 @@ import typer
 from dotenv import dotenv_values
 from rich.panel import Panel
 
-from snapshotter_cli.utils.console import Prompt, console
+from snapshotter_cli.utils.console import Prompt, config_prompt, console
 from snapshotter_cli.utils.deployment import (
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
@@ -274,28 +274,28 @@ def configure_command(
     else:
         recommended_max_stream_pool_size = 20
     # --- Collect Credentials ---
-    final_wallet_address = wallet_address or Prompt.ask(
+    final_wallet_address = wallet_address or config_prompt(
         "👉 Enter slot NFT holder wallet address (0x...)",
-        default=existing_env_vars.get("WALLET_HOLDER_ADDRESS", ""),
+        current_value=existing_env_vars.get("WALLET_HOLDER_ADDRESS", ""),
     )
-    final_signer_address = signer_address or Prompt.ask(
+    final_signer_address = signer_address or config_prompt(
         "👉 Enter SNAPSHOTTER signer address (0x...)",
-        default=existing_env_vars.get("SIGNER_ACCOUNT_ADDRESS", ""),
+        current_value=existing_env_vars.get("SIGNER_ACCOUNT_ADDRESS", ""),
     )
     final_signer_key = signer_key
     if not final_signer_key:
         existing_key = existing_env_vars.get("SIGNER_ACCOUNT_PRIVATE_KEY", "")
-        final_signer_key = Prompt.ask(
+        final_signer_key = config_prompt(
             "👉 Enter signer private key",
+            current_value=existing_key,
             password=True,
-            default="(hidden)" if existing_key else "",
         )
         if final_signer_key == "(hidden)" or final_signer_key == "":
             final_signer_key = existing_key
 
-    final_source_rpc = source_rpc_url or Prompt.ask(
+    final_source_rpc = source_rpc_url or config_prompt(
         f"👉 Enter RPC URL for {selected_market_obj.sourceChain}",
-        default=existing_env_vars.get("SOURCE_RPC_URL", ""),
+        current_value=existing_env_vars.get("SOURCE_RPC_URL", ""),
     )
     # Prompt for Powerloom RPC URL (existing env takes precedence over chain default)
     if powerloom_rpc_url:
@@ -306,13 +306,15 @@ def configure_command(
         )
     else:
         existing_powerloom_rpc = existing_env_vars.get("POWERLOOM_RPC_URL", "").strip()
-        final_powerloom_rpc_url = Prompt.ask(
+        final_powerloom_rpc_url = config_prompt(
             "👉 Enter Powerloom RPC URL",
-            default=existing_powerloom_rpc or default_rpc_url,
+            current_value=existing_powerloom_rpc,
+            default_value=default_rpc_url if not existing_powerloom_rpc else None,
         )
-    final_telegram_chat = telegram_chat_id or Prompt.ask(
-        "👉 Enter Telegram chat ID (optional)",
-        default=existing_env_vars.get("TELEGRAM_CHAT_ID", ""),
+    final_telegram_chat = telegram_chat_id or config_prompt(
+        "👉 Enter Telegram chat ID",
+        current_value=existing_env_vars.get("TELEGRAM_CHAT_ID", ""),
+        optional=True,
     )
     # Don't prompt for Telegram reporting URL - use existing or default
     final_telegram_url = (
@@ -325,18 +327,19 @@ def configure_command(
     final_telegram_cooldown = ""
     final_telegram_thread = ""
     if final_telegram_chat:
-        default_cooldown = existing_env_vars.get(
-            "TELEGRAM_NOTIFICATION_COOLDOWN", "300"
-        )
-        final_telegram_cooldown = Prompt.ask(
-            "👉 Enter Telegram notification cooldown in seconds (optional)",
-            default=default_cooldown,
+        existing_cooldown = existing_env_vars.get("TELEGRAM_NOTIFICATION_COOLDOWN", "")
+        final_telegram_cooldown = config_prompt(
+            "👉 Enter Telegram notification cooldown in seconds",
+            current_value=existing_cooldown,
+            default_value="300" if not existing_cooldown else None,
+            optional=True,
         )
 
         # Prompt for Telegram thread ID
-        final_telegram_thread = telegram_thread_id or Prompt.ask(
-            "👉 Enter Telegram message thread ID for organizing notifications (optional, leave empty for main chat)",
-            default=existing_env_vars.get("TELEGRAM_MESSAGE_THREAD_ID", ""),
+        final_telegram_thread = telegram_thread_id or config_prompt(
+            "👉 Enter Telegram message thread ID for organizing notifications (leave empty for main chat)",
+            current_value=existing_env_vars.get("TELEGRAM_MESSAGE_THREAD_ID", ""),
+            optional=True,
         )
 
     # Don't prompt for max stream pool size - use existing or recommended value
@@ -363,12 +366,14 @@ def configure_command(
 
     # Prompt for LOCAL_COLLECTOR_P2P_PORT (important for decentralized gossipsub mesh).
     # If the namespaced env did not have this key earlier, default "8001" is shown and written on save.
+    existing_p2p_port = existing_env_vars.get("LOCAL_COLLECTOR_P2P_PORT", "")
     final_local_collector_p2p_port = (
         str(local_collector_p2p_port)
         if local_collector_p2p_port is not None
-        else Prompt.ask(
+        else config_prompt(
             "👉 Enter local collector P2P port (for gossipsub mesh communication)",
-            default=existing_env_vars.get("LOCAL_COLLECTOR_P2P_PORT", "8001"),
+            current_value=existing_p2p_port,
+            default_value="8001" if not existing_p2p_port else None,
         )
     )
 
