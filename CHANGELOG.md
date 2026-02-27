@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`--force` / `-f` flag for deploy command** - Skip slot ownership validation when deploying with explicit `--slot`/`--slots` flags. Useful when deploying slots that will be transferred or when the RPC returns stale data. Available in both CLI (`powerloom-snapshotter-cli deploy --force`) and legacy script (`multi_clone.py --force`).
+
 ## [v0.3.1] - 2026-02-26
 
 ### Fixed
