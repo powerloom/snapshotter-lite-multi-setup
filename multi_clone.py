@@ -784,6 +784,7 @@ def main(
     parallel_workers: int = None,
     sequential: bool = False,
     slot_list: list = None,
+    force: bool = False,
 ):
     # check if Docker is running
     if not docker_running():
@@ -900,13 +901,16 @@ def main(
         print(f"🟢 Latest-only mode: Deploying only the latest slot {latest_slot}")
     elif slot_list:
         # Deploy specific slots from provided list
-        invalid_slots = [slot for slot in slot_list if slot not in slot_ids]
-        if invalid_slots:
-            print(
-                f"❌ Error: The following slots are not owned by this wallet: {invalid_slots}"
-            )
-            print(f"Available slots: {slot_ids}")
-            sys.exit(1)
+        if not force:
+            invalid_slots = [slot for slot in slot_list if slot not in slot_ids]
+            if invalid_slots:
+                print(
+                    f"❌ Error: The following slots are not owned by this wallet: {invalid_slots}"
+                )
+                print(f"Available slots: {slot_ids}")
+                sys.exit(1)
+        else:
+            print("⚠️  Skipping slot ownership validation (--force).")
         deploy_slots = slot_list
         print(f"🟢 Slot list mode: Deploying specified slots {deploy_slots}")
     elif non_interactive:
@@ -1136,6 +1140,12 @@ if __name__ == "__main__":
         metavar="SLOT_IDS",
         help="Comma-separated list of specific slot IDs to deploy (e.g., --slots 1234,5678,9012)",
     )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Skip slot ownership validation when using --slots",
+    )
 
     args = parser.parse_args()
 
@@ -1181,4 +1191,5 @@ if __name__ == "__main__":
         parallel_workers=args.parallel_workers,
         sequential=args.sequential,
         slot_list=slot_list,
+        force=args.force,
     )
