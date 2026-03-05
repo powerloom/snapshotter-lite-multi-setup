@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **`--force` / `-f` flag for deploy command** - Skip slot ownership validation when deploying with explicit `--slot`/`--slots` flags. Useful when deploying slots that will be transferred or when the RPC returns stale data. Available in both CLI (`powerloom-snapshotter-cli deploy --force`) and legacy script (`multi_clone.py --force`).
 
+### Changed
+- **Legacy script BDS-only (`multi_clone.py`)** - Rewrote legacy deployment script to support BDS mainnet only (`BDS_MAINNET_UNISWAPV3`). Removed hardcoded AAVEV3/UNISWAPV2 market support, `--data-market` argument, and CPU-based `MAX_STREAM_POOL_SIZE` scaling. Market configuration (contract addresses, repos, P2P discovery, bootstrap nodes) is now fetched dynamically from `sources.json` via stdlib `urllib`. Build.sh is called with `--bds-dsv-mainnet` flag. Default branch changed to `master`, `CONNECTION_REFRESH_INTERVAL_SEC` defaults to 300. `IMAGE_TAG` is derived from `LITE_NODE_BRANCH`. All BDS DSV env vars (connection manager, stream pool, mesh, etc.) are overridable via `.env`.
+- **`env.example` updated for BDS** - `LITE_NODE_BRANCH` defaults to `master`, `LOCAL_COLLECTOR_IMAGE_TAG` defaults to `master`. All BDS DSV env vars (connection manager, stream pool, mesh, P2P ports) shown commented out with defaults for discoverability and optional override.
+
 ## [v0.3.1] - 2026-02-26
 
 ### Fixed

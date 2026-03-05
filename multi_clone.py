@@ -6,6 +6,8 @@ import subprocess
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from threading import Semaphore
 
@@ -21,29 +23,42 @@ OUTPUT_WORTHY_ENV_VARS = [
     "POWERLOOM_RPC_URL",
 ]
 
-DATA_MARKET_CHOICE_NAMESPACES = {"1": "AAVEV3", "2": "UNISWAPV2"}
-
-# legacy data market choices
-DATA_MARKET_CHOICES_PROTOCOL_STATE = {
-    "AAVEV3": {
-        "DATA_MARKET_CONTRACT": "0x0000000000000000000000000000000000000000",
-        "SNAPSHOTTER_CONFIG_REPO": "https://github.com/PowerLoom/snapshotter-configs.git",
-        "SNAPSHOTTER_COMPUTE_REPO": "https://github.com/PowerLoom/snapshotter-computes.git",
-        "SNAPSHOTTER_CONFIG_REPO_BRANCH": "eth_aavev3_lite_v2",
-        "SNAPSHOTTER_COMPUTE_REPO_BRANCH": "eth_aavev3_lite",
-    },
-    "UNISWAPV2": {
-        "DATA_MARKET_CONTRACT": "0x21cb57C1f2352ad215a463DD867b838749CD3b8f",
-        "SNAPSHOTTER_CONFIG_REPO": "https://github.com/PowerLoom/snapshotter-configs.git",
-        "SNAPSHOTTER_COMPUTE_REPO": "https://github.com/PowerLoom/snapshotter-computes.git",
-        "SNAPSHOTTER_CONFIG_REPO_BRANCH": "eth_uniswapv2-lite_v2",
-        "SNAPSHOTTER_COMPUTE_REPO_BRANCH": "eth_uniswapv2_lite_v2",
-    },
-}
+MARKETS_CONFIG_URL = "https://raw.githubusercontent.com/powerloom/curated-datamarkets/master/sources.json"
+BDS_MAINNET_MARKET = "BDS_MAINNET_UNISWAPV3"
 POWERLOOM_CHAIN = "mainnet"
 SOURCE_CHAIN = "ETH"
-POWERLOOM_RPC_URL = "https://rpc-v2.powerloom.network"
-PROTOCOL_STATE_CONTRACT = "0x000AA7d3a6a2556496f363B59e56D9aA1881548F"
+DEFAULT_POWERLOOM_RPC_URL = "https://rpc-v2.powerloom.network"
+
+
+def fetch_bds_mainnet_config():
+    """Fetch sources.json and return the BDS_MAINNET_UNISWAPV3 market config dict.
+
+    Returns None on failure.
+    """
+    try:
+        req = urllib.request.Request(MARKETS_CONFIG_URL)
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            raw_data = json.loads(resp.read().decode("utf-8"))
+    except (urllib.error.URLError, json.JSONDecodeError, OSError) as e:
+        print(f"❌ Failed to fetch markets config from {MARKETS_CONFIG_URL}: {e}")
+        return None
+
+    # Find MAINNET chain entry
+    for chain_entry in raw_data:
+        chain_info = chain_entry.get("powerloomChain", {})
+        chain_name = chain_info.get("name", "").upper()
+        if chain_name != "MAINNET":
+            continue
+        for market in chain_entry.get("dataMarkets", []):
+            if market.get("name", "").upper() == BDS_MAINNET_MARKET:
+                # Attach the chain RPC URL for convenience
+                market["_powerloom_rpc_url"] = str(
+                    chain_info.get("rpcURL", DEFAULT_POWERLOOM_RPC_URL)
+                )
+                return market
+
+    print(f"❌ Could not find {BDS_MAINNET_MARKET} market in sources.json")
+    return None
 
 
 def get_user_slots(contract_obj, wallet_owner_addr):
@@ -51,96 +66,145 @@ def get_user_slots(contract_obj, wallet_owner_addr):
     return holder_slots
 
 
-def env_file_template(
+def build_env_vars(
+    market_config: dict,
     source_rpc_url: str,
     signer_addr: str,
     signer_pkey: str,
+    slot_id,
     powerloom_rpc_url: str,
-    namespace: str,
-    data_market_contract: str,
-    slot_id: str,
-    snapshot_config_repo: str,
-    snapshot_config_repo_branch: str,
-    snapshotter_compute_repo: str,
-    snapshotter_compute_repo_branch: str,
-    data_market_in_request: str = "false",
+    lite_node_branch: str = "master",
     telegram_reporting_url: str = "",
     telegram_chat_id: str = "",
     telegram_message_thread_id: str = "",
-    powerloom_chain: str = POWERLOOM_CHAIN,
-    source_chain: str = SOURCE_CHAIN,
-    local_collector_port: int = 50051,
-    max_stream_pool_size: int = 2,
-    stream_pool_health_check_interval: int = 30,
-    local_collector_image_tag: str = "latest",
-    telegram_notification_cooldown: int = 300,
-    connection_refresh_interval_sec: int = 60,
-    override_defaults: str = "false",
-) -> str:
+    connection_refresh_interval_sec: int = 300,
+    env_overrides: dict = None,
+) -> dict:
+    """Build a complete dict of BDS env vars from market_config (sources.json entry).
+
+    Values from env_overrides (top-level .env) take precedence over defaults.
+    """
+    if env_overrides is None:
+        env_overrides = {}
+
+    def _get(key, default):
+        """Return env_overrides value if set, otherwise default."""
+        val = env_overrides.get(key)
+        return val if val else default
+
+    market_name = market_config.get("name", BDS_MAINNET_MARKET).upper()
+    namespace = market_name
+    powerloom_chain = POWERLOOM_CHAIN
+    source_chain = SOURCE_CHAIN
     full_namespace = f"{powerloom_chain}-{namespace}-{source_chain}"
     docker_network_name = f"snapshotter-lite-v2-{full_namespace}"
-    return f"""
-# Required
-SOURCE_RPC_URL={source_rpc_url}
-SIGNER_ACCOUNT_ADDRESS={signer_addr}
-SIGNER_ACCOUNT_PRIVATE_KEY={signer_pkey}
-SLOT_ID={slot_id}
-SNAPSHOT_CONFIG_REPO={snapshot_config_repo}
-SNAPSHOT_CONFIG_REPO_BRANCH={snapshot_config_repo_branch}
-SNAPSHOTTER_COMPUTE_REPO={snapshotter_compute_repo}
-SNAPSHOTTER_COMPUTE_REPO_BRANCH={snapshotter_compute_repo_branch}
-DOCKER_NETWORK_NAME={docker_network_name}
-POWERLOOM_RPC_URL={powerloom_rpc_url}
-DATA_MARKET_CONTRACT={data_market_contract}
-NAMESPACE={namespace}
-POWERLOOM_CHAIN={powerloom_chain}
-SOURCE_CHAIN={source_chain}
-FULL_NAMESPACE={full_namespace}
-LOCAL_COLLECTOR_PORT={local_collector_port}
-MAX_STREAM_POOL_SIZE={max_stream_pool_size}
-STREAM_POOL_HEALTH_CHECK_INTERVAL={stream_pool_health_check_interval}
-DATA_MARKET_IN_REQUEST={data_market_in_request}
-# Optional
-LOCAL_COLLECTOR_IMAGE_TAG={local_collector_image_tag}
-TELEGRAM_REPORTING_URL={telegram_reporting_url}
-TELEGRAM_CHAT_ID={telegram_chat_id}
-TELEGRAM_MESSAGE_THREAD_ID={telegram_message_thread_id}
-CONNECTION_REFRESH_INTERVAL_SEC={connection_refresh_interval_sec}
-TELEGRAM_NOTIFICATION_COOLDOWN={telegram_notification_cooldown}
-OVERRIDE_DEFAULTS={override_defaults}
-"""
 
+    env = {}
 
-def generate_env_file_contents(data_market_namespace: str, **kwargs) -> str:
-    return env_file_template(
-        source_rpc_url=kwargs["source_rpc_url"],
-        signer_addr=kwargs["signer_addr"],
-        signer_pkey=kwargs["signer_pkey"],
-        powerloom_rpc_url=kwargs["powerloom_rpc_url"],
-        namespace=data_market_namespace,
-        data_market_contract=kwargs["data_market_contract"],
-        slot_id=kwargs["slot_id"],
-        snapshot_config_repo=kwargs["snapshotter_config_repo"],
-        snapshot_config_repo_branch=kwargs["snapshotter_config_repo_branch"],
-        snapshotter_compute_repo=kwargs["snapshotter_compute_repo"],
-        snapshotter_compute_repo_branch=kwargs["snapshotter_compute_repo_branch"],
-        telegram_chat_id=kwargs["telegram_chat_id"],
-        telegram_message_thread_id=kwargs.get("telegram_message_thread_id", ""),
-        telegram_reporting_url=kwargs["telegram_reporting_url"],
-        max_stream_pool_size=kwargs["max_stream_pool_size"],
-        stream_pool_health_check_interval=kwargs["stream_pool_health_check_interval"],
-        local_collector_image_tag=kwargs["local_collector_image_tag"],
-        connection_refresh_interval_sec=kwargs["connection_refresh_interval_sec"],
-        override_defaults=kwargs.get("override_defaults", "false"),
+    # Core
+    env["SOURCE_RPC_URL"] = source_rpc_url
+    env["SIGNER_ACCOUNT_ADDRESS"] = signer_addr
+    env["SIGNER_ACCOUNT_PRIVATE_KEY"] = signer_pkey
+    env["SLOT_ID"] = str(slot_id)
+    env["POWERLOOM_RPC_URL"] = powerloom_rpc_url
+
+    # Market-derived (from sources.json)
+    env["DATA_MARKET_CONTRACT"] = market_config.get("contractAddress", "")
+    env["PROTOCOL_STATE_CONTRACT"] = market_config.get(
+        "powerloomProtocolStateContractAddress", ""
     )
+
+    config_section = market_config.get("config", {})
+    env["SNAPSHOT_CONFIG_REPO"] = str(config_section.get("repo", ""))
+    env["SNAPSHOT_CONFIG_REPO_BRANCH"] = config_section.get("branch", "")
+    if config_section.get("commit"):
+        env["SNAPSHOT_CONFIG_REPO_COMMIT"] = config_section["commit"]
+
+    compute_section = market_config.get("compute", {})
+    env["SNAPSHOTTER_COMPUTE_REPO"] = str(compute_section.get("repo", ""))
+    env["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = compute_section.get("branch", "")
+    if compute_section.get("commit"):
+        env["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = compute_section["commit"]
+
+    # BDS-specific: IMAGE_TAG derived from lite_node_branch, LOCAL_COLLECTOR_IMAGE_TAG overridable
+    env["IMAGE_TAG"] = lite_node_branch
+    env["LOCAL_COLLECTOR_IMAGE_TAG"] = _get("LOCAL_COLLECTOR_IMAGE_TAG", "master")
+    env["LOCAL_COLLECTOR_P2P_PORT"] = _get("LOCAL_COLLECTOR_P2P_PORT", "8001")
+    env["LOCAL_COLLECTOR_HEALTH_CHECK_PORT"] = _get(
+        "LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080"
+    )
+
+    # P2P Discovery
+    bootstrap_nodes = market_config.get("bootstrapNodes", [])
+    if bootstrap_nodes:
+        env["BOOTSTRAP_NODE_ADDRS"] = ",".join(bootstrap_nodes)
+    if market_config.get("rendezvousPoint"):
+        env["RENDEZVOUS_POINT"] = market_config["rendezvousPoint"]
+    if market_config.get("gossipsubSnapshotSubmissionPrefix"):
+        env["GOSSIPSUB_SNAPSHOT_SUBMISSION_PREFIX"] = market_config[
+            "gossipsubSnapshotSubmissionPrefix"
+        ]
+    centralized_seq = market_config.get("centralizedSequencerEnabled")
+    if centralized_seq is not None:
+        env["CENTRALIZED_SEQUENCER_ENABLED"] = str(centralized_seq).lower()
+
+    # Connection manager (overridable via .env)
+    env["CONN_MANAGER_LOW_WATER"] = _get("CONN_MANAGER_LOW_WATER", "100")
+    env["CONN_MANAGER_HIGH_WATER"] = _get("CONN_MANAGER_HIGH_WATER", "400")
+
+    # Stream pool (overridable via .env)
+    env["MAX_STREAM_POOL_SIZE"] = _get("MAX_STREAM_POOL_SIZE", "2")
+    env["MAX_STREAM_QUEUE_SIZE"] = _get("MAX_STREAM_QUEUE_SIZE", "1000")
+    env["STREAM_HEALTH_CHECK_TIMEOUT_MS"] = _get(
+        "STREAM_HEALTH_CHECK_TIMEOUT_MS", "5000"
+    )
+    env["STREAM_WRITE_TIMEOUT_MS"] = _get("STREAM_WRITE_TIMEOUT_MS", "5000")
+    env["MAX_WRITE_RETRIES"] = _get("MAX_WRITE_RETRIES", "3")
+    env["MAX_CONCURRENT_WRITES"] = _get("MAX_CONCURRENT_WRITES", "10")
+    env["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = _get(
+        "STREAM_POOL_HEALTH_CHECK_INTERVAL", "60000"
+    )
+    env["WRITE_SEMAPHORE_TIMEOUT_SEC"] = _get("WRITE_SEMAPHORE_TIMEOUT_SEC", "5")
+
+    # Mesh (overridable via .env)
+    env["MESH_SUBMISSION_RATE_LIMIT"] = _get("MESH_SUBMISSION_RATE_LIMIT", "100")
+    env["MESH_SUBMISSION_BURST_SIZE"] = _get("MESH_SUBMISSION_BURST_SIZE", "200")
+    env["MAX_MESH_PUBLISH_GOROUTINES"] = _get("MAX_MESH_PUBLISH_GOROUTINES", "500")
+    env["MESH_PUBLISH_QUEUE_SIZE"] = _get("MESH_PUBLISH_QUEUE_SIZE", "1000")
+
+    # Other
+    env["DATA_MARKET_IN_REQUEST"] = _get("DATA_MARKET_IN_REQUEST", "true")
+    env["PUBLIC_IP"] = _get("PUBLIC_IP", "")
+    env["OVERRIDE_DEFAULTS"] = _get("OVERRIDE_DEFAULTS", "true")
+
+    # Naming
+    env["NAMESPACE"] = namespace
+    env["POWERLOOM_CHAIN"] = powerloom_chain
+    env["SOURCE_CHAIN"] = source_chain
+    env["FULL_NAMESPACE"] = full_namespace
+    env["DOCKER_NETWORK_NAME"] = docker_network_name
+
+    # Optional / Telegram
+    env["TELEGRAM_REPORTING_URL"] = telegram_reporting_url
+    env["TELEGRAM_CHAT_ID"] = telegram_chat_id
+    env["TELEGRAM_MESSAGE_THREAD_ID"] = telegram_message_thread_id
+    env["CONNECTION_REFRESH_INTERVAL_SEC"] = str(connection_refresh_interval_sec)
+
+    return env
+
+
+def env_dict_to_string(env_dict: dict) -> str:
+    """Serialize an env dict to .env file format."""
+    lines = []
+    for key, value in env_dict.items():
+        lines.append(f"{key}={value}")
+    return "\n".join(lines) + "\n"
 
 
 def deploy_single_node(
     slot_id: int,
     idx: int,
-    data_market_namespace: str,
-    data_market_contract_number: int,
-    protocol_state: dict,
+    market_config: dict,
     full_namespace: str,
     base_dir: str,
     semaphore=None,
@@ -156,14 +220,11 @@ def deploy_single_node(
 
         # Use semaphore to control concurrent deployments if provided
         if semaphore:
-            # print(f"⏳ [Worker {threading.current_thread().name}] Waiting for slot to deploy {slot_id}...")
             with semaphore:
                 result = _deploy_single_node_impl(
                     slot_id,
                     idx,
-                    data_market_namespace,
-                    data_market_contract_number,
-                    protocol_state,
+                    market_config,
                     full_namespace,
                     base_dir,
                     **kwargs,
@@ -172,9 +233,7 @@ def deploy_single_node(
             result = _deploy_single_node_impl(
                 slot_id,
                 idx,
-                data_market_namespace,
-                data_market_contract_number,
-                protocol_state,
+                market_config,
                 full_namespace,
                 base_dir,
                 **kwargs,
@@ -202,9 +261,7 @@ def deploy_single_node(
 def _deploy_single_node_impl(
     slot_id: int,
     idx: int,
-    data_market_namespace: str,
-    data_market_contract_number: int,
-    protocol_state: dict,
+    market_config: dict,
     full_namespace: str,
     base_dir: str,
     **kwargs,
@@ -221,7 +278,8 @@ def _deploy_single_node_impl(
         else:
             collector_profile_string = ""
 
-        repo_name = f"powerloom-mainnet-v2-{slot_id}-{data_market_namespace}"
+        market_name = market_config.get("name", BDS_MAINNET_MARKET).upper()
+        repo_name = f"powerloom-{POWERLOOM_CHAIN}-v2-{slot_id}-{market_name}"
         repo_path = os.path.join(base_dir, repo_name)
 
         # Clean up existing directory
@@ -236,46 +294,35 @@ def _deploy_single_node_impl(
         )
 
         # Generate environment file
-        env_file_contents = generate_env_file_contents(
-            data_market_namespace=data_market_namespace,
+        env_vars = build_env_vars(
+            market_config=market_config,
             source_rpc_url=kwargs["source_rpc_url"],
             signer_addr=kwargs["signer_addr"],
             signer_pkey=kwargs["signer_pkey"],
+            slot_id=slot_id,
             powerloom_rpc_url=kwargs["powerloom_rpc_url"],
-            namespace=data_market_namespace,
-            data_market_contract=protocol_state["DATA_MARKET_CONTRACT"],
-            snapshotter_config_repo_branch=protocol_state[
-                "SNAPSHOTTER_CONFIG_REPO_BRANCH"
-            ],
-            snapshotter_compute_repo_branch=protocol_state[
-                "SNAPSHOTTER_COMPUTE_REPO_BRANCH"
-            ],
-            snapshotter_config_repo=protocol_state["SNAPSHOTTER_CONFIG_REPO"],
-            snapshotter_compute_repo=protocol_state["SNAPSHOTTER_COMPUTE_REPO"],
+            lite_node_branch=kwargs.get("lite_node_branch", "master"),
             telegram_chat_id=kwargs["telegram_chat_id"],
             telegram_message_thread_id=kwargs.get("telegram_message_thread_id", ""),
             telegram_reporting_url=kwargs["telegram_reporting_url"],
-            max_stream_pool_size=kwargs["max_stream_pool_size"],
-            stream_pool_health_check_interval=kwargs[
-                "stream_pool_health_check_interval"
-            ],
-            local_collector_image_tag=kwargs["local_collector_image_tag"],
-            slot_id=slot_id,
             connection_refresh_interval_sec=kwargs["connection_refresh_interval_sec"],
-            override_defaults=kwargs.get("override_defaults", "false"),
+            env_overrides=kwargs.get("env_overrides"),
         )
 
         env_file_path = os.path.join(repo_path, f".env-{full_namespace}")
         with open(env_file_path, "w+") as f:
-            f.write(env_file_contents)
+            f.write(env_dict_to_string(env_vars))
 
         # Launch in screen session
         print(
             "--" * 20 + f"Spinning up docker containers for slot {slot_id}" + "--" * 20
         )
 
+        # Build.sh flags: BDS mainnet uses --bds-dsv-mainnet
+        build_flags = f"--bds-dsv-mainnet {collector_profile_string} --skip-credential-update --data-market-contract-number 1"
+
         # Create and launch screen session
-        screen_cmd = f"""cd {repo_path} && screen -dmS {repo_name} bash -c './build.sh {collector_profile_string} --skip-credential-update --data-market-contract-number {data_market_contract_number}'"""
+        screen_cmd = f"""cd {repo_path} && screen -dmS {repo_name} bash -c './build.sh {build_flags}'"""
         subprocess.run(screen_cmd, shell=True, check=True)
 
         # Wait and verify container actually starts
@@ -339,12 +386,11 @@ def _deploy_single_node_impl(
 
 def run_snapshotter_lite_v2(
     deploy_slots: list,
-    data_market_contract_number: int,
-    data_market_namespace: str,
+    market_config: dict,
     **kwargs,
 ):
-    protocol_state = DATA_MARKET_CHOICES_PROTOCOL_STATE[data_market_namespace]
-    full_namespace = f"{POWERLOOM_CHAIN}-{data_market_namespace}-{SOURCE_CHAIN}"
+    market_name = market_config.get("name", BDS_MAINNET_MARKET).upper()
+    full_namespace = f"{POWERLOOM_CHAIN}-{market_name}-{SOURCE_CHAIN}"
     base_dir = os.getcwd()
 
     # Check if sequential mode is requested
@@ -357,9 +403,7 @@ def run_snapshotter_lite_v2(
             result = deploy_single_node(
                 slot_id,
                 idx,
-                data_market_namespace,
-                data_market_contract_number,
-                protocol_state,
+                market_config,
                 full_namespace,
                 base_dir,
                 **kwargs,
@@ -391,9 +435,7 @@ def run_snapshotter_lite_v2(
         result = deploy_single_node(
             deploy_slots[0],
             0,
-            data_market_namespace,
-            data_market_contract_number,
-            protocol_state,
+            market_config,
             full_namespace,
             base_dir,
             deployment_tracker=deployment_tracker,
@@ -490,9 +532,7 @@ def run_snapshotter_lite_v2(
                         deploy_single_node,
                         slot_id,
                         actual_idx + 1,
-                        data_market_namespace,
-                        data_market_contract_number,
-                        protocol_state,
+                        market_config,
                         full_namespace,
                         base_dir,
                         semaphore=deployment_semaphore,
@@ -673,7 +713,7 @@ def run_snapshotter_lite_v2(
             screen_sessions = set()
             if result.stdout:
                 for line in result.stdout.strip().split("\n"):
-                    # Extract slot ID from screen name like: 98180.powerloom-mainnet-v2-6568-UNISWAPV2
+                    # Extract slot ID from screen name like: 98180.powerloom-mainnet-v2-6568-BDS_MAINNET_UNISWAPV3
                     match = re.search(r"powerloom-[^-]+-[^-]+-(\d+)-", line)
                     if match:
                         screen_sessions.add(int(match.group(1)))
@@ -760,27 +800,9 @@ def docker_running():
         return False
 
 
-def calculate_connection_refresh_interval(num_slots):
-    # Base minimum interval
-    MIN_INTERVAL = 60  # seconds
-
-    if num_slots <= 10:
-        return MIN_INTERVAL
-
-    # Linear scaling with some adjustments
-    # Formula: 4 seconds per slot + baseline of 60
-    interval = (4 * num_slots) + MIN_INTERVAL
-
-    # Cap at reasonable maximum
-    MAX_INTERVAL = 900  # 15 minutes
-    return min(interval, MAX_INTERVAL)
-
-
 def main(
-    data_market_choice: str,
     non_interactive: bool = False,
     latest_only: bool = False,
-    use_env_refresh_interval: bool = False,
     parallel_workers: int = None,
     sequential: bool = False,
     slot_list: list = None,
@@ -821,26 +843,41 @@ def main(
         sys.exit(1)
 
     load_dotenv(override=True)
-    # force uniswapv2 for now
-    data_market_choice = "2"
-    data_market_contract_number = int(data_market_choice, 10)
-    namespace = DATA_MARKET_CHOICE_NAMESPACES[str(data_market_contract_number)]
+
+    # Fetch BDS mainnet config from sources.json
+    print("⚙️ Fetching BDS mainnet market configuration from sources.json...")
+    market_config = fetch_bds_mainnet_config()
+    if not market_config:
+        print("❌ Could not fetch BDS mainnet market config. Exiting.")
+        sys.exit(1)
+    print(f"🟢 Loaded market config: {market_config.get('name', 'unknown')}")
+
+    # Get PROTOCOL_STATE_CONTRACT from market config (not hardcoded)
+    protocol_state_contract_addr = market_config.get(
+        "powerloomProtocolStateContractAddress", ""
+    )
+    if not protocol_state_contract_addr:
+        print("❌ PROTOCOL_STATE_CONTRACT not found in market config. Exiting.")
+        sys.exit(1)
+
     # Setup Web3 connections
     wallet_holder_address = os.getenv("WALLET_HOLDER_ADDRESS")
     powerloom_rpc_url = os.getenv("POWERLOOM_RPC_URL")
 
     if not powerloom_rpc_url:
-        print("🟡 POWERLOOM_RPC_URL is not set in .env file, using default value...")
-        powerloom_rpc_url = POWERLOOM_RPC_URL
+        powerloom_rpc_url = market_config.get(
+            "_powerloom_rpc_url", DEFAULT_POWERLOOM_RPC_URL
+        )
+        print(
+            f"🟡 POWERLOOM_RPC_URL is not set in .env file, using default: {powerloom_rpc_url}"
+        )
 
-    lite_node_branch = os.getenv("LITE_NODE_BRANCH", "main")
-    local_collector_image_tag = os.getenv("LOCAL_COLLECTOR_IMAGE_TAG", "")
-    if not local_collector_image_tag:
-        if lite_node_branch != "dockerify":
-            local_collector_image_tag = "latest"
-        else:
-            local_collector_image_tag = "dockerify"
+    # BDS uses master branch
+    lite_node_branch = os.getenv("LITE_NODE_BRANCH", "master")
+    print(f"🟢 Using lite node branch: {lite_node_branch}")
+    local_collector_image_tag = os.getenv("LOCAL_COLLECTOR_IMAGE_TAG", "master")
     print(f"🟢 Using local collector image tag: {local_collector_image_tag}")
+
     if not wallet_holder_address:
         print("Missing wallet holder address environment variable")
         sys.exit(1)
@@ -864,7 +901,7 @@ def main(
         )
         sys.exit(1)
 
-    protocol_state_address = w3.to_checksum_address(PROTOCOL_STATE_CONTRACT)
+    protocol_state_address = w3.to_checksum_address(protocol_state_contract_addr)
     protocol_state_contract = w3.eth.contract(
         address=protocol_state_address,
         abi=protocol_state_abi,
@@ -934,6 +971,7 @@ def main(
 
     # Display deployment configuration
     print("\n📋 Deployment Configuration:")
+    print(f"   • Market: {BDS_MAINNET_MARKET}")
     cpu_cores = psutil.cpu_count(logical=True)
     if parallel_workers is not None:
         print(f"   • Parallel Workers: {parallel_workers} (user-specified)")
@@ -966,146 +1004,87 @@ def main(
         )
     print()
 
-    if not data_market_contract_number:
-        if non_interactive:
-            # Default to UNISWAPV2 in non-interactive mode
-            data_market = "2"
-            namespace = DATA_MARKET_CHOICE_NAMESPACES[data_market]
-            data_market_contract_number = int(data_market, 10)
-            print(f"\n🟢 Non-interactive mode: Defaulting to {namespace}")
-        else:
-            print("\n🔍 Select a data market contract (UNISWAPV2 is default):")
-            for key, value in DATA_MARKET_CHOICE_NAMESPACES.items():
-                print(f"{key}. {value}")
-            data_market = input(
-                "\n🫸 ▶︎ Please enter your choice (1/2) [default: 2 - UNISWAPV2]: "
-            ).strip()
-
-            # Default to UNISWAPV2 if input is empty or invalid
-            if not data_market or data_market not in DATA_MARKET_CHOICE_NAMESPACES:
-                data_market = "2"  # Default to UNISWAPV2
-                print(f"\n🟢 Defaulting to UNISWAPV2")
-
-            # Get namespace from the data market choice
-            namespace = DATA_MARKET_CHOICE_NAMESPACES[data_market]
-            data_market_contract_number = int(data_market, 10)
-            print(f"\n🟢 Selected data market namespace: {namespace}")
-    else:
-        namespace = DATA_MARKET_CHOICE_NAMESPACES[data_market_choice]
-        print(f"\n🟢 Selected data market namespace: {namespace}")
-
     if os.path.exists("snapshotter-lite-v2"):
         print(
             "🟡 Previously cloned snapshotter-lite-v2 repo already exists, deleting..."
         )
         os.system("rm -rf snapshotter-lite-v2")
-    print("⚙️ Cloning snapshotter-lite-v2 repo from main branch...")
+    print(f"⚙️ Cloning snapshotter-lite-v2 repo from {lite_node_branch} branch...")
     os.system(
         f"git clone https://github.com/PowerLoom/snapshotter-lite-v2 --depth 1 --single-branch --branch {lite_node_branch}"
     )
-    # recommended max stream pool size
-    cpus = psutil.cpu_count(logical=True)
-    if cpus >= 2 and cpus < 4:
-        recommended_max_stream_pool_size = 40
-    elif cpus >= 4:
-        recommended_max_stream_pool_size = 100
-    else:
-        recommended_max_stream_pool_size = 20
-    if os.getenv("MAX_STREAM_POOL_SIZE"):
-        try:
-            max_stream_pool_size = int(os.getenv("MAX_STREAM_POOL_SIZE", "0"))
-        except Exception:
-            max_stream_pool_size = 0
-        else:
-            print(
-                f"🟢 Using MAX_STREAM_POOL_SIZE from .env file: {max_stream_pool_size}"
-            )
-    if not max_stream_pool_size:
-        max_stream_pool_size = recommended_max_stream_pool_size
-        print(
-            f"🟢 Using recommended MAX_STREAM_POOL_SIZE for {cpus} logical CPUs: {max_stream_pool_size}"
-        )
-    if max_stream_pool_size > recommended_max_stream_pool_size:
-        print(
-            f"⚠️ MAX_STREAM_POOL_SIZE is greater than the recommended {recommended_max_stream_pool_size} for {cpus} logical CPUs, this may cause instability!"
-        )
-        print("Switching to recommended MAX_STREAM_POOL_SIZE...")
-        max_stream_pool_size = recommended_max_stream_pool_size
-    if (
-        len(deploy_slots) < max_stream_pool_size
-        and len(slot_ids) < max_stream_pool_size
-    ):
-        print(
-            f"🟡 Only {len(deploy_slots)} slots are being deployed out of {len(slot_ids)}, but MAX_STREAM_POOL_SIZE is set to {max_stream_pool_size}. This may cause instability!"
-        )
-        print("Scaling down MAX_STREAM_POOL_SIZE to match the total number of slots...")
-        max_stream_pool_size = len(slot_ids)
 
-    # Calculate appropriate connection refresh interval based on number of slots
-    suggested_refresh_interval = calculate_connection_refresh_interval(
-        len(deploy_slots)
-    )
-    connection_refresh_interval = os.getenv("CONNECTION_REFRESH_INTERVAL_SEC")
-    connection_refresh_interval = (
-        int(connection_refresh_interval) if connection_refresh_interval else 0
-    )
-    if use_env_refresh_interval:
-        if not connection_refresh_interval:
+    # CONNECTION_REFRESH_INTERVAL_SEC: default 300, overridable via .env
+    connection_refresh_interval = 300
+    env_connection_refresh = os.getenv("CONNECTION_REFRESH_INTERVAL_SEC")
+    if env_connection_refresh:
+        try:
+            connection_refresh_interval = int(env_connection_refresh)
             print(
-                "🟡 CONNECTION_REFRESH_INTERVAL_SEC is not set in .env file, using calculated value..."
+                f"🟢 Using CONNECTION_REFRESH_INTERVAL_SEC from .env: {connection_refresh_interval}"
             )
-            connection_refresh_interval = suggested_refresh_interval
-        else:
-            if connection_refresh_interval != suggested_refresh_interval:
-                print(
-                    f"⚠️ Current CONNECTION_REFRESH_INTERVAL_SEC ({connection_refresh_interval}s) is different from the suggested value ({suggested_refresh_interval}s) for {len(deploy_slots)} slots\n"
-                    "BE WARNED: This may cause connection instability under high load!\n"
-                    "⚡ Moving ahead with overridden value from environment..."
-                )
+        except ValueError:
+            print(
+                f"⚠️ Invalid CONNECTION_REFRESH_INTERVAL_SEC in .env, using default: {connection_refresh_interval}"
+            )
     else:
-        if connection_refresh_interval != suggested_refresh_interval:
-            if connection_refresh_interval == 0:
-                print(
-                    f"✔️ Using suggested connection refresh interval value of {suggested_refresh_interval}s for {len(deploy_slots)} slots"
-                )
-            else:
-                print(
-                    f"⚠️ Current CONNECTION_REFRESH_INTERVAL_SEC ({connection_refresh_interval}s) in .env file is different from the suggested value ({suggested_refresh_interval}s) for {len(deploy_slots)} slots\n"
-                    "⛑️ Using suggested value for safety... If you know what you are doing, you can override this by passing --use-env-connection-refresh-interval to the script"
-                )
-            connection_refresh_interval = suggested_refresh_interval
+        print(
+            f"🟢 Using default CONNECTION_REFRESH_INTERVAL_SEC: {connection_refresh_interval}"
+        )
+
+    # Collect all overridable env vars from .env so build_env_vars() can respect them.
+    # Any key set in .env takes precedence over the built-in default.
+    overridable_keys = [
+        "LOCAL_COLLECTOR_IMAGE_TAG",
+        "LOCAL_COLLECTOR_P2P_PORT",
+        "LOCAL_COLLECTOR_HEALTH_CHECK_PORT",
+        "CONN_MANAGER_LOW_WATER",
+        "CONN_MANAGER_HIGH_WATER",
+        "MAX_STREAM_POOL_SIZE",
+        "MAX_STREAM_QUEUE_SIZE",
+        "STREAM_HEALTH_CHECK_TIMEOUT_MS",
+        "STREAM_WRITE_TIMEOUT_MS",
+        "MAX_WRITE_RETRIES",
+        "MAX_CONCURRENT_WRITES",
+        "STREAM_POOL_HEALTH_CHECK_INTERVAL",
+        "WRITE_SEMAPHORE_TIMEOUT_SEC",
+        "MESH_SUBMISSION_RATE_LIMIT",
+        "MESH_SUBMISSION_BURST_SIZE",
+        "MAX_MESH_PUBLISH_GOROUTINES",
+        "MESH_PUBLISH_QUEUE_SIZE",
+        "DATA_MARKET_IN_REQUEST",
+        "PUBLIC_IP",
+        "OVERRIDE_DEFAULTS",
+    ]
+    env_overrides = {}
+    for key in overridable_keys:
+        val = os.getenv(key)
+        if val is not None:
+            env_overrides[key] = val
 
     run_snapshotter_lite_v2(
         deploy_slots,
-        data_market_contract_number,
-        namespace,
+        market_config,
         source_rpc_url=os.getenv("SOURCE_RPC_URL"),
         signer_addr=os.getenv("SIGNER_ACCOUNT_ADDRESS"),
         signer_pkey=os.getenv("SIGNER_ACCOUNT_PRIVATE_KEY"),
-        powerloom_rpc_url=os.getenv("POWERLOOM_RPC_URL"),
-        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID"),
+        powerloom_rpc_url=powerloom_rpc_url,
+        lite_node_branch=lite_node_branch,
+        telegram_chat_id=os.getenv("TELEGRAM_CHAT_ID", ""),
         telegram_message_thread_id=os.getenv("TELEGRAM_MESSAGE_THREAD_ID", ""),
         telegram_reporting_url=os.getenv(
             "TELEGRAM_REPORTING_URL", "https://tg-testing.powerloom.io"
         ),
-        max_stream_pool_size=max_stream_pool_size,
-        stream_pool_health_check_interval=os.getenv(
-            "STREAM_POOL_HEALTH_CHECK_INTERVAL", 120
-        ),
-        local_collector_image_tag=local_collector_image_tag,
         connection_refresh_interval_sec=connection_refresh_interval,
-        override_defaults=os.getenv("OVERRIDE_DEFAULTS", "false"),
+        env_overrides=env_overrides,
         parallel_workers=parallel_workers,
         sequential=sequential,
     )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Powerloom mainnet multi-node setup")
-    parser.add_argument(
-        "--data-market",
-        choices=["1", "2"],
-        help="Data market choice (1: AAVEV3, 2: UNISWAPV2)",
+    parser = argparse.ArgumentParser(
+        description="Powerloom mainnet multi-node setup (BDS)"
     )
     parser.add_argument(
         "-y",
@@ -1117,11 +1096,6 @@ if __name__ == "__main__":
         "--latest-only",
         action="store_true",
         help="Deploy only the latest (highest) slot",
-    )
-    parser.add_argument(
-        "--use-env-connection-refresh-interval",
-        action="store_true",
-        help="Use CONNECTION_REFRESH_INTERVAL_SEC from environment instead of calculating based on slots",
     )
     parser.add_argument(
         "--parallel-workers",
@@ -1148,8 +1122,6 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
-    data_market = args.data_market if args.data_market else "0"
 
     # Validate parallel workers if provided
     if args.parallel_workers is not None:
@@ -1184,10 +1156,8 @@ if __name__ == "__main__":
         )
 
     main(
-        data_market_choice=data_market,
         non_interactive=args.yes,
         latest_only=args.latest_only,
-        use_env_refresh_interval=args.use_env_connection_refresh_interval,
         parallel_workers=args.parallel_workers,
         sequential=args.sequential,
         slot_list=slot_list,
