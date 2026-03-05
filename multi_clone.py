@@ -188,6 +188,9 @@ def build_env_vars(
     env["TELEGRAM_REPORTING_URL"] = telegram_reporting_url
     env["TELEGRAM_CHAT_ID"] = telegram_chat_id
     env["TELEGRAM_MESSAGE_THREAD_ID"] = telegram_message_thread_id
+    env["TELEGRAM_NOTIFICATION_COOLDOWN"] = _get(
+        "TELEGRAM_NOTIFICATION_COOLDOWN", "300"
+    )
     env["CONNECTION_REFRESH_INTERVAL_SEC"] = str(connection_refresh_interval_sec)
 
     return env
@@ -1055,6 +1058,7 @@ def main(
         "DATA_MARKET_IN_REQUEST",
         "PUBLIC_IP",
         "OVERRIDE_DEFAULTS",
+        "TELEGRAM_NOTIFICATION_COOLDOWN",
     ]
     env_overrides = {}
     for key in overridable_keys:
