@@ -129,6 +129,7 @@ def build_env_vars(
     # BDS-specific: IMAGE_TAG derived from lite_node_branch, LOCAL_COLLECTOR_IMAGE_TAG overridable
     env["IMAGE_TAG"] = lite_node_branch
     env["LOCAL_COLLECTOR_IMAGE_TAG"] = _get("LOCAL_COLLECTOR_IMAGE_TAG", "master")
+    env["LOCAL_COLLECTOR_PORT"] = _get("LOCAL_COLLECTOR_PORT", "50051")
     env["LOCAL_COLLECTOR_P2P_PORT"] = _get("LOCAL_COLLECTOR_P2P_PORT", "8001")
     env["LOCAL_COLLECTOR_HEALTH_CHECK_PORT"] = _get(
         "LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080"
@@ -1039,6 +1040,7 @@ def main(
     # Any key set in .env takes precedence over the built-in default.
     overridable_keys = [
         "LOCAL_COLLECTOR_IMAGE_TAG",
+        "LOCAL_COLLECTOR_PORT",
         "LOCAL_COLLECTOR_P2P_PORT",
         "LOCAL_COLLECTOR_HEALTH_CHECK_PORT",
         "CONN_MANAGER_LOW_WATER",
