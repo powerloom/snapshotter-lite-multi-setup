@@ -261,6 +261,9 @@ def deploy(
     signer_key_opt: Optional[str] = typer.Option(
         None, "--signer-key", help="Signer account private key.", hide_input=True
     ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Skip slot ownership validation."
+    ),
 ):
     """Deploy snapshotter nodes for specified environment and data markets."""
     # --- Docker Check ---
@@ -635,7 +638,7 @@ def deploy(
             first_market.powerloomProtocolStateContractAddress
         )
 
-        if deploy_slots:
+        if deploy_slots and not force:
             # Validate provided slots are owned by the wallet
             console.print(
                 f"ℹ️ Validating provided slots against wallet {final_wallet_address}...",
@@ -667,6 +670,11 @@ def deploy(
             console.print(
                 "✅ All provided slots validated as owned.",
                 style="green",
+            )
+        elif deploy_slots and force:
+            console.print(
+                "⚠️  Skipping slot ownership validation (--force).",
+                style="yellow",
             )
         elif not deploy_slots:
             console.print(
