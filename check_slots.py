@@ -13,12 +13,13 @@ import sys
 from dotenv import load_dotenv
 from web3 import Web3
 
-POWERLOOM_CHAIN = "mainnet"
-SOURCE_CHAIN = "ETH"
-POWERLOOM_RPC_URL = "https://rpc-v2.powerloom.network"
-PROTOCOL_STATE_CONTRACT = "0x000AA7d3a6a2556496f363B59e56D9aA1881548F"
-
-DATA_MARKET_CHOICE_NAMESPACES = {"1": "AAVEV3", "2": "UNISWAPV2"}
+from multi_clone import (
+    BDS_MAINNET_MARKET,
+    DEFAULT_POWERLOOM_RPC_URL,
+    POWERLOOM_CHAIN,
+    SOURCE_CHAIN,
+    fetch_bds_mainnet_config,
+)
 
 
 def get_user_slots(contract_obj, wallet_owner_addr):
@@ -32,7 +33,7 @@ def get_running_slots(namespace=None):
     Get all running slots from Docker containers.
 
     Args:
-        namespace: Optional namespace filter (e.g., "UNISWAPV2")
+        namespace: Optional namespace filter (e.g., "BDS_MAINNET_UNISWAPV3")
 
     Returns:
         dict: Dictionary mapping slot_id to list of container info
@@ -67,10 +68,11 @@ def get_running_slots(namespace=None):
     return running_slots
 
 
-def get_screen_sessions():
+def get_screen_sessions(namespace=None):
     """Get all running screen sessions for Powerloom nodes."""
+    grep_filter = namespace if namespace else "powerloom"
     result = subprocess.run(
-        "screen -ls | grep powerloom",
+        f"screen -ls | grep '{grep_filter}'",
         shell=True,
         capture_output=True,
         text=True,
@@ -96,9 +98,26 @@ def main():
 
     load_dotenv(override=True)
 
+    # Fetch BDS mainnet config from sources.json
+    print("⚙️ Fetching BDS mainnet market configuration...")
+    market_config = fetch_bds_mainnet_config()
+    if not market_config:
+        print("❌ Could not fetch BDS mainnet market config. Exiting.")
+        sys.exit(1)
+
+    protocol_state_contract_addr = market_config.get(
+        "powerloomProtocolStateContractAddress", ""
+    )
+    if not protocol_state_contract_addr:
+        print("❌ PROTOCOL_STATE_CONTRACT not found in market config. Exiting.")
+        sys.exit(1)
+
     # Get configuration
     wallet_holder_address = os.getenv("WALLET_HOLDER_ADDRESS")
-    powerloom_rpc_url = os.getenv("POWERLOOM_RPC_URL", POWERLOOM_RPC_URL)
+    powerloom_rpc_url = os.getenv(
+        "POWERLOOM_RPC_URL",
+        market_config.get("_powerloom_rpc_url", DEFAULT_POWERLOOM_RPC_URL),
+    )
 
     if not wallet_holder_address:
         print("❌ Missing WALLET_HOLDER_ADDRESS environment variable")
@@ -124,7 +143,7 @@ def main():
         sys.exit(1)
 
     # Get protocol state contract
-    protocol_state_address = w3.to_checksum_address(PROTOCOL_STATE_CONTRACT)
+    protocol_state_address = w3.to_checksum_address(protocol_state_contract_addr)
     protocol_state_contract = w3.eth.contract(
         address=protocol_state_address,
         abi=protocol_state_abi,
@@ -150,13 +169,13 @@ def main():
 
     print(f"✅ Found {len(slot_ids)} total slots\n")
 
-    # Get running slots from Docker
+    # Get running slots from Docker (filter by BDS market namespace)
     print("🐳 Checking running Docker containers...")
-    running_slots = get_running_slots()
+    running_slots = get_running_slots(namespace=BDS_MAINNET_MARKET)
 
-    # Get screen sessions
+    # Get screen sessions (filter by BDS market namespace)
     print("📺 Checking screen sessions...")
-    screen_slots = get_screen_sessions()
+    screen_slots = get_screen_sessions(namespace=BDS_MAINNET_MARKET)
 
     # Analyze status
     running_slot_ids = set(running_slots.keys())
@@ -171,6 +190,11 @@ def main():
     print("\n" + "=" * 80)
     print("📊 SLOT STATUS SUMMARY")
     print("=" * 80 + "\n")
+
+    print(f"   Market: {BDS_MAINNET_MARKET}")
+    print(
+        f"   Protocol State: {protocol_state_contract_addr[:10]}...{protocol_state_contract_addr[-6:]}\n"
+    )
 
     # Running slots
     if running_slot_ids:
