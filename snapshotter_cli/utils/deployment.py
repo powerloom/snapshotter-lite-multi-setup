@@ -108,6 +108,25 @@ def run_os_system_command(command_str: str, instance_dir_name: str, action_desc:
         return False
 
 
+def get_instance_env_file_path(
+    powerloom_chain_config: ChainConfig,
+    market_config: MarketConfig,
+    slot_id: int,
+) -> Path:
+    """Compute the .env file path for a given chain/market/slot instance."""
+    norm_pl_chain_name = powerloom_chain_config.name.lower()
+    market_name_upper = market_config.name.upper()
+    norm_market_name = market_config.name.lower()
+    norm_source_chain_name_for_path = market_config.sourceChain.lower()
+    source_chain_prefix_upper = market_config.sourceChain.split("-")[0].upper()
+    instance_subpath = f"{norm_pl_chain_name}/{norm_market_name}_{norm_source_chain_name_for_path}/slot-{slot_id}"
+    instance_dir = SNAPSHOTTER_LITE_V2_DIR / instance_subpath
+    env_file_suffix = (
+        f"{norm_pl_chain_name}-{market_name_upper}-{source_chain_prefix_upper}"
+    )
+    return instance_dir / f".env-{env_file_suffix}"
+
+
 def deploy_snapshotter_instance(
     powerloom_chain_config: ChainConfig,  # Config for the Powerloom chain (e.g., devnet, mainnet)
     market_config: MarketConfig,  # Config for the specific data market (e.g., UNISWAPV2 on ETH-MAINNET)
@@ -120,6 +139,9 @@ def deploy_snapshotter_instance(
     active_profile: Optional[
         str
     ] = None,  # Optional profile name to load env from profile directory
+    local_collector_port: Optional[
+        str
+    ] = None,  # Port discovered by first slot's collector_test.sh
 ) -> bool:
     """
     Deploys a single snapshotter-lite-v2 instance for a given slot and market.
@@ -376,7 +398,10 @@ def deploy_snapshotter_instance(
 
     # Add missing vars from multi_clone.py, using defaults or loading from pre-config/env
     # For simplicity, pre-loaded 'final_env_vars' from a namespaced .env file can override these defaults.
-    final_env_vars.setdefault("LOCAL_COLLECTOR_PORT", "50051")
+    if local_collector_port:
+        final_env_vars["LOCAL_COLLECTOR_PORT"] = local_collector_port
+    else:
+        final_env_vars.setdefault("LOCAL_COLLECTOR_PORT", "50051")
     final_env_vars.setdefault(
         "MAX_STREAM_POOL_SIZE", "2"
     )  # Default from multi_clone, may need adjustment based on CPU as in multi_clone
