@@ -68,10 +68,11 @@ def get_running_slots(namespace=None):
     return running_slots
 
 
-def get_screen_sessions():
+def get_screen_sessions(namespace=None):
     """Get all running screen sessions for Powerloom nodes."""
+    grep_filter = namespace if namespace else "powerloom"
     result = subprocess.run(
-        "screen -ls | grep powerloom",
+        f"screen -ls | grep '{grep_filter}'",
         shell=True,
         capture_output=True,
         text=True,
@@ -172,9 +173,9 @@ def main():
     print("🐳 Checking running Docker containers...")
     running_slots = get_running_slots(namespace=BDS_MAINNET_MARKET)
 
-    # Get screen sessions
+    # Get screen sessions (filter by BDS market namespace)
     print("📺 Checking screen sessions...")
-    screen_slots = get_screen_sessions()
+    screen_slots = get_screen_sessions(namespace=BDS_MAINNET_MARKET)
 
     # Analyze status
     running_slot_ids = set(running_slots.keys())

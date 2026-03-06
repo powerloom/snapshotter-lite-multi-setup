@@ -707,9 +707,10 @@ def run_snapshotter_lite_v2(
                     completed_slots = deployment_tracker["completed"].copy()
                     failed_slots = deployment_tracker["failed"].copy()
 
-            # Now check screen sessions
+            # Now check screen sessions (filter by market namespace)
+            market_name = market_config.get("name", BDS_MAINNET_MARKET).upper()
             result = subprocess.run(
-                f"screen -ls | grep powerloom",
+                f"screen -ls | grep '{market_name}'",
                 shell=True,
                 capture_output=True,
                 text=True,
