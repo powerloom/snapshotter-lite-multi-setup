@@ -24,6 +24,7 @@ from .utils.deployment import (
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
     deploy_snapshotter_instance,
+    get_instance_env_file_path,
     parse_env_file_vars,
     run_git_command,
 )
@@ -1002,6 +1003,7 @@ def deploy(
                 failed_deployments += len(deploy_slots)
                 continue
 
+            collector_port_for_market = None
             for idx, slot_id_val in enumerate(deploy_slots):
                 # Build base args for build.sh
                 base_args = (
@@ -1059,9 +1061,33 @@ def deploy(
                     base_snapshotter_lite_repo_path=base_snapshotter_clone_path,
                     build_sh_args_param=build_sh_args_for_instance,
                     active_profile=active_profile,
+                    local_collector_port=collector_port_for_market,
                 )
                 if success:
                     successful_deployments += 1
+                    # After first slot deploys, read back the LOCAL_COLLECTOR_PORT
+                    # that collector_test.sh assigned (it may differ from the default
+                    # 50051 if that port was already in use by another market).
+                    # Pass this port to subsequent slots so they connect to the
+                    # correct collector for this market.
+                    if idx == 0 and len(deploy_slots) > 1:
+                        first_slot_env_path = get_instance_env_file_path(
+                            env_config.chain_config,
+                            market_conf_obj,
+                            slot_id_val,
+                        )
+                        if first_slot_env_path.exists():
+                            first_slot_env_vars = parse_env_file_vars(
+                                str(first_slot_env_path)
+                            )
+                            collector_port_for_market = first_slot_env_vars.get(
+                                "LOCAL_COLLECTOR_PORT", "50051"
+                            )
+                            console.print(
+                                f"    ℹ️ Detected LOCAL_COLLECTOR_PORT={collector_port_for_market} from first slot; "
+                                f"will use for remaining slots in this market.",
+                                style="dim",
+                            )
                 else:
                     failed_deployments += 1
                     console.print(
