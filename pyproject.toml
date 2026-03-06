@@ -28,7 +28,7 @@ requires-python = ">=3.12,<3.14"
 dependencies = [
     # https://github.com/fastapi/typer/pull/1225
     # https://github.com/ai-dynamo/dynamo/issues/1039
-    "typer[all]==0.15.4",
+    "typer==0.15.4",
     "rich>=13.7.0",
     "web3>=6.15.1",
     "python-dotenv>=1.0.1",
