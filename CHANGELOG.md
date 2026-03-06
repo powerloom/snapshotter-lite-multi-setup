@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Legacy script BDS-only (`multi_clone.py`)** - Rewrote legacy deployment script to support BDS mainnet only (`BDS_MAINNET_UNISWAPV3`). Removed hardcoded AAVEV3/UNISWAPV2 market support, `--data-market` argument, and CPU-based `MAX_STREAM_POOL_SIZE` scaling. Market configuration (contract addresses, repos, P2P discovery, bootstrap nodes) is now fetched dynamically from `sources.json` via stdlib `urllib`. Build.sh is called with `--bds-dsv-mainnet` flag. Default branch changed to `master`, `CONNECTION_REFRESH_INTERVAL_SEC` defaults to 300. `IMAGE_TAG` is derived from `LITE_NODE_BRANCH`. All BDS DSV env vars (connection manager, stream pool, mesh, etc.) are overridable via `.env`.
 - **`env.example` updated for BDS** - `LITE_NODE_BRANCH` defaults to `master`, `LOCAL_COLLECTOR_IMAGE_TAG` defaults to `master`. All BDS DSV env vars (connection manager, stream pool, mesh, P2P ports) shown commented out with defaults for discoverability and optional override.
+- **`check_slots.py` updated for BDS** - Removed hardcoded `PROTOCOL_STATE_CONTRACT` and old market namespaces. Now imports `fetch_bds_mainnet_config` from `multi_clone.py` for dynamic config. Filters Docker containers and screen sessions by `BDS_MAINNET_UNISWAPV3` namespace.
+- **Deployment summary false mismatches** - Screen session grep in `multi_clone.py` and `check_slots.py` now filters by market namespace (`BDS_MAINNET_UNISWAPV3`) instead of broad `grep powerloom`, preventing old UNISWAPV2 sessions from appearing as mismatches.
 
 ## [v0.3.1] - 2026-02-26
 
