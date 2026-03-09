@@ -121,10 +121,17 @@ def build_env_vars(
         env["SNAPSHOT_CONFIG_REPO_COMMIT"] = config_section["commit"]
 
     compute_section = market_config.get("compute", {})
-    env["SNAPSHOTTER_COMPUTE_REPO"] = str(compute_section.get("repo", ""))
-    env["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = compute_section.get("branch", "")
-    if compute_section.get("commit"):
-        env["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = compute_section["commit"]
+    env["SNAPSHOTTER_COMPUTE_REPO"] = _get(
+        "SNAPSHOTTER_COMPUTE_REPO", str(compute_section.get("repo", ""))
+    )
+    env["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = _get(
+        "SNAPSHOTTER_COMPUTE_REPO_BRANCH", compute_section.get("branch", "")
+    )
+    compute_commit = _get(
+        "SNAPSHOTTER_COMPUTE_REPO_COMMIT", compute_section.get("commit", "")
+    )
+    if compute_commit:
+        env["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = compute_commit
 
     # BDS-specific: IMAGE_TAG derived from lite_node_branch, LOCAL_COLLECTOR_IMAGE_TAG overridable
     env["IMAGE_TAG"] = lite_node_branch
@@ -1062,6 +1069,9 @@ def main(
         "PUBLIC_IP",
         "OVERRIDE_DEFAULTS",
         "TELEGRAM_NOTIFICATION_COOLDOWN",
+        "SNAPSHOTTER_COMPUTE_REPO",
+        "SNAPSHOTTER_COMPUTE_REPO_BRANCH",
+        "SNAPSHOTTER_COMPUTE_REPO_COMMIT",
     ]
     env_overrides = {}
     for key in overridable_keys:
