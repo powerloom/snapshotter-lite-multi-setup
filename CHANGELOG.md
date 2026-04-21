@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`LITE_NODE_BRANCH` ignored for BDS markets** - Deploy previously forced `master` for BDS DSV markets before reading the profile namespaced `.env`, so `LITE_NODE_BRANCH` (e.g. `experimental`) was never applied. Profile/shell `LITE_NODE_BRANCH` now takes precedence; `master` is only the fallback when unset for BDS.
+
 ### Added
+- **Telegram / reporting env parity with snapshotter-lite-v2** - Generated and template `.env` files now include defaults aligned with the lite node: `TELEGRAM_NOTIFICATION_COOLDOWN` defaults to **300** (seconds), **`TELEGRAM_MISSED_BATCH_SIZE`** defaults to **10** (minimum queued missed-snapshot items before a `MISSED_SNAPSHOT` Telegram is sent; see lite-v2). Wired in `snapshotter_cli/utils/deployment.py` (`setdefault`), `multi_clone.py` env template, `configure` (ordered template fields + `setdefault` when `TELEGRAM_CHAT_ID` is set), and `profile export` safe keys so operators can see the value without secrets.
 - **`--force` / `-f` flag for deploy command** - Skip slot ownership validation when deploying with explicit `--slot`/`--slots` flags. Useful when deploying slots that will be transferred or when the RPC returns stale data. Available in both CLI (`powerloom-snapshotter-cli deploy --force`) and legacy script (`multi_clone.py --force`).
 
 ## [v0.3.1] - 2026-02-26
