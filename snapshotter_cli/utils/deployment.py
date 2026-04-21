@@ -389,6 +389,7 @@ def deploy_snapshotter_instance(
     )  # Simplified default
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
+    final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
 
     # Normalize boolean env vars to lowercase AFTER all values are set
     # This handles cases where env files have "False" or "True" instead of "false" or "true"

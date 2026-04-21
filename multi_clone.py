@@ -74,6 +74,7 @@ def env_file_template(
     stream_pool_health_check_interval: int = 30,
     local_collector_image_tag: str = "latest",
     telegram_notification_cooldown: int = 300,
+    telegram_missed_batch_size: int = 10,
     connection_refresh_interval_sec: int = 60,
     override_defaults: str = "false",
 ) -> str:
@@ -107,6 +108,7 @@ TELEGRAM_CHAT_ID={telegram_chat_id}
 TELEGRAM_MESSAGE_THREAD_ID={telegram_message_thread_id}
 CONNECTION_REFRESH_INTERVAL_SEC={connection_refresh_interval_sec}
 TELEGRAM_NOTIFICATION_COOLDOWN={telegram_notification_cooldown}
+TELEGRAM_MISSED_BATCH_SIZE={telegram_missed_batch_size}
 OVERRIDE_DEFAULTS={override_defaults}
 """
 
