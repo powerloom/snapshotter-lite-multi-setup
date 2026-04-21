@@ -800,30 +800,38 @@ def deploy(
             console.print("🤷 No data markets selected for deployment.", style="yellow")
             raise typer.Exit(0)
 
-        # Get LITE_NODE_BRANCH from namespaced env content or use default
-        lite_node_branch = "main"  # default branch
+        # Base snapshotter-lite-v2 clone branch: profile .env wins over BDS defaults.
+        # (Previously BDS always forced "master", which ignored LITE_NODE_BRANCH in namespaced env.)
+        lite_node_branch = "main"  # default when not BDS and no env
 
-        # Check if any selected market is BDS_DEVNET_ALPHA_UNISWAPV3 or BDS_MAINNET_UNISWAPV3 and set specific branch
         bds_market_selected = any(
             market.name.upper() == "BDS_DEVNET_ALPHA_UNISWAPV3"
             or market.name.upper() == "BDS_MAINNET_UNISWAPV3"
             for market in selected_market_objects
         )
-        if bds_market_selected:
-            lite_node_branch = "master"
+
+        env_branch = ""
+        if namespaced_env_content and namespaced_env_content.get("LITE_NODE_BRANCH"):
+            env_branch = str(namespaced_env_content["LITE_NODE_BRANCH"]).strip()
+        if not env_branch and os.environ.get("LITE_NODE_BRANCH"):
+            env_branch = str(os.environ["LITE_NODE_BRANCH"]).strip()
+
+        if env_branch:
+            lite_node_branch = env_branch
             console.print(
-                f"🚀 BDS DSV market detected - using branch: [bold cyan]{lite_node_branch}[/bold cyan]",
+                f"📌 Using LITE_NODE_BRANCH from environment: [bold cyan]{lite_node_branch}[/bold cyan]",
                 style="dim",
             )
-        elif namespaced_env_content and "LITE_NODE_BRANCH" in namespaced_env_content:
-            lite_node_branch = namespaced_env_content["LITE_NODE_BRANCH"]
+        elif bds_market_selected:
+            lite_node_branch = "master"
             console.print(
-                f"📌 Using LITE_NODE_BRANCH from configuration: [bold cyan]{lite_node_branch}[/bold cyan]",
+                f"🚀 BDS DSV market detected — no LITE_NODE_BRANCH in profile/shell; "
+                f"using default branch: [bold cyan]{lite_node_branch}[/bold cyan]",
                 style="dim",
             )
         else:
             console.print(
-                f"📌 No LITE_NODE_BRANCH found in configuration, using default: [bold cyan]{lite_node_branch}[/bold cyan]",
+                f"📌 No LITE_NODE_BRANCH in configuration, using default: [bold cyan]{lite_node_branch}[/bold cyan]",
                 style="dim",
             )
 
