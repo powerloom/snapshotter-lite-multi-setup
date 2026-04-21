@@ -359,14 +359,24 @@ def deploy_snapshotter_instance(
     )
     # Config/compute repo vars: profile env overrides sources.json (use setdefault)
     final_env_vars.setdefault("SNAPSHOT_CONFIG_REPO", str(market_config.config.repo))
-    final_env_vars.setdefault("SNAPSHOT_CONFIG_REPO_BRANCH", market_config.config.branch)
+    final_env_vars.setdefault(
+        "SNAPSHOT_CONFIG_REPO_BRANCH", market_config.config.branch
+    )
     if market_config.config.commit:
-        final_env_vars.setdefault("SNAPSHOT_CONFIG_REPO_COMMIT", market_config.config.commit)
+        final_env_vars.setdefault(
+            "SNAPSHOT_CONFIG_REPO_COMMIT", market_config.config.commit
+        )
 
-    final_env_vars.setdefault("SNAPSHOTTER_COMPUTE_REPO", str(market_config.compute.repo))
-    final_env_vars.setdefault("SNAPSHOTTER_COMPUTE_REPO_BRANCH", market_config.compute.branch)
+    final_env_vars.setdefault(
+        "SNAPSHOTTER_COMPUTE_REPO", str(market_config.compute.repo)
+    )
+    final_env_vars.setdefault(
+        "SNAPSHOTTER_COMPUTE_REPO_BRANCH", market_config.compute.branch
+    )
     if market_config.compute.commit:
-        final_env_vars.setdefault("SNAPSHOTTER_COMPUTE_REPO_COMMIT", market_config.compute.commit)
+        final_env_vars.setdefault(
+            "SNAPSHOTTER_COMPUTE_REPO_COMMIT", market_config.compute.commit
+        )
 
     final_env_vars["POWERLOOM_CHAIN"] = norm_pl_chain_name
     final_env_vars["NAMESPACE"] = market_name_upper
