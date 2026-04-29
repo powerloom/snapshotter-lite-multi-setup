@@ -3,7 +3,7 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from snapshotter_cli.utils.console import console
 from snapshotter_cli.utils.models import (  # PowerloomChainConfig is the one with .name
@@ -39,6 +39,42 @@ def parse_env_file_vars(file_path: str) -> Dict[str, str]:
                     key, value = line.split("=", 1)
                     env_vars[key.strip()] = value.strip()
     return env_vars
+
+
+def load_namespaced_env_for_deploy_market(
+    active_profile: str,
+    norm_pl_chain_lower: str,
+    market_name: str,
+    market_obj: MarketConfig,
+) -> Tuple[Optional[Dict[str, str]], str]:
+    """Load namespaced `.env` for one chain + market using profile → legacy `~/.powerloom…/envs` → cwd."""
+    from snapshotter_cli.utils.profile import get_profile_env_path
+
+    norm_market_for_file = market_name.lower()
+    norm_source_chain = market_obj.sourceChain.lower().replace("-", "_")
+    primary = get_profile_env_path(
+        active_profile,
+        norm_pl_chain_lower,
+        norm_market_for_file,
+        norm_source_chain,
+    )
+    if primary.exists():
+        return parse_env_file_vars(str(primary)), "profile"
+
+    potential_name = CONFIG_ENV_FILENAME_TEMPLATE.format(
+        norm_pl_chain_lower,
+        norm_market_for_file,
+        norm_source_chain,
+    )
+    legacy = CONFIG_DIR / potential_name
+    if legacy.exists():
+        return parse_env_file_vars(str(legacy)), "legacy"
+
+    cwd_candidate = Path(os.getcwd()) / potential_name
+    if cwd_candidate.exists():
+        return parse_env_file_vars(str(cwd_candidate)), "cwd"
+
+    return None, ""
 
 
 def apply_snapshot_config_repo_from_market(

@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Telegram / reporting env parity with snapshotter-lite-v2** - Generated and template `.env` files now include defaults aligned with the lite node: `TELEGRAM_NOTIFICATION_COOLDOWN` defaults to **300** (seconds), **`TELEGRAM_MISSED_BATCH_SIZE`** defaults to **10** (minimum queued missed-snapshot items before a `MISSED_SNAPSHOT` Telegram is sent; see lite-v2). Wired in `snapshotter_cli/utils/deployment.py` (`setdefault`), `multi_clone.py` env template (`generate_env_file_contents` forwards cooldown/missed-batch), `configure` (ordered template fields + `setdefault` when `TELEGRAM_CHAT_ID` is set), and `profile export` safe keys so operators can see the value without secrets.
 - **Deploy `--force` / `-f` (documentation)** — The deploy command already supported `--force` / `-f` for skipping slot ownership validation with `--slot` / `--slots`; changelog now spells this out and notes parity with legacy `multi_clone.py --force`.
 
+### Improved
+- **Multi-market deploy** — Namespaced `.env` for the snapshotter-lite-v2 checkout is still loaded from the **first** selected market only (shared base clone). Selecting multiple markets with different **`LITE_NODE_BRANCH`** entries in profiles now prints a CLI warning explaining that mismatch; align branches or deploy in separate passes.
+
 ## [v0.3.1] - 2026-02-26
 
 ### Fixed
