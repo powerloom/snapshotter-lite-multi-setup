@@ -2,7 +2,7 @@ import os
 import shutil
 import traceback
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import requests
 import typer
@@ -24,6 +24,7 @@ from .utils.deployment import (
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
     deploy_snapshotter_instance,
+    load_namespaced_env_for_deploy_market,
     parse_env_file_vars,
     run_git_command,
 )
@@ -557,57 +558,38 @@ def deploy(
         norm_pl_chain_name_for_file = selected_powerloom_chain_name_upper.lower()
 
         if final_selected_markets_str_list:
-            # Use the first selected market for loading env file
+            # First market's env file feeds credentials and (unless shell overrides) LITE_NODE_BRANCH for base clone.
             first_market_name = final_selected_markets_str_list[0]
             market_obj = env_config.markets[first_market_name.upper()]
-            norm_market_name_for_file = first_market_name.lower()
-            norm_source_chain_name_for_file = market_obj.sourceChain.lower().replace(
-                "-", "_"
-            )
-
-            # Get profile-specific env file path
-            config_file_path = get_profile_env_path(
+            namespaced_env_content, env_source = load_namespaced_env_for_deploy_market(
                 active_profile,
                 norm_pl_chain_name_for_file,
-                norm_market_name_for_file,
-                norm_source_chain_name_for_file,
+                first_market_name,
+                market_obj,
             )
+            if env_source == "profile" and namespaced_env_content:
+                from snapshotter_cli.utils.profile import get_profile_env_path
 
-            if config_file_path.exists():
+                display_path = get_profile_env_path(
+                    active_profile,
+                    norm_pl_chain_name_for_file,
+                    first_market_name.lower(),
+                    market_obj.sourceChain.lower().replace("-", "_"),
+                )
                 console.print(
-                    f"✓ Found profile config for market {first_market_name}: {config_file_path}",
+                    f"✓ Found profile config for market {first_market_name}: {display_path}",
                     style="dim",
                 )
-                namespaced_env_content = parse_env_file_vars(str(config_file_path))
-            else:
-                # Fallback to legacy locations for backward compatibility
-                potential_config_filename = CONFIG_ENV_FILENAME_TEMPLATE.format(
-                    norm_pl_chain_name_for_file,
-                    norm_market_name_for_file,
-                    norm_source_chain_name_for_file,
+            elif env_source == "legacy" and namespaced_env_content:
+                console.print(
+                    f"⚠️ Found legacy env file. Consider running 'profile list' to migrate.",
+                    style="yellow",
                 )
-
-                # Check old CONFIG_DIR location
-                legacy_config_path = CONFIG_DIR / potential_config_filename
-                if legacy_config_path.exists():
-                    console.print(
-                        f"⚠️ Found legacy env file. Consider running 'profile list' to migrate.",
-                        style="yellow",
-                    )
-                    namespaced_env_content = parse_env_file_vars(
-                        str(legacy_config_path)
-                    )
-                else:
-                    # Check current directory for backward compatibility
-                    cwd_config_file_path = Path(os.getcwd()) / potential_config_filename
-                    if cwd_config_file_path.exists():
-                        console.print(
-                            f"⚠️ Found legacy env file in current directory. Consider migrating to profiles.",
-                            style="yellow",
-                        )
-                        namespaced_env_content = parse_env_file_vars(
-                            str(cwd_config_file_path)
-                        )
+            elif env_source == "cwd" and namespaced_env_content:
+                console.print(
+                    f"⚠️ Found legacy env file in current directory. Consider migrating to profiles.",
+                    style="yellow",
+                )
 
         final_wallet_address = get_credential(
             "WALLET_HOLDER_ADDRESS",
@@ -799,6 +781,37 @@ def deploy(
         if not selected_market_objects:
             console.print("🤷 No data markets selected for deployment.", style="yellow")
             raise typer.Exit(0)
+
+        # Multi-market deploy: base lite-v2 clone uses one checkout; credentials/LITE_NODE_BRANCH resolution
+        # still reads namespaced env from the *first* market only.
+        if len(final_selected_markets_str_list) > 1:
+            lite_branch_by_market: List[Tuple[str, str]] = []
+            for mname in final_selected_markets_str_list:
+                mobj = env_config.markets[mname.upper()]
+                emap, _ = load_namespaced_env_for_deploy_market(
+                    active_profile,
+                    norm_pl_chain_name_for_file,
+                    mname,
+                    mobj,
+                )
+                if not emap:
+                    continue
+                raw_lb = emap.get("LITE_NODE_BRANCH")
+                if raw_lb is None:
+                    continue
+                v = str(raw_lb).strip()
+                if v:
+                    lite_branch_by_market.append((mname, v))
+            if len({b for _, b in lite_branch_by_market}) > 1:
+                summary = "; ".join(f"{n}→{v}" for n, v in lite_branch_by_market)
+                console.print(
+                    "⚠️ Multiple markets selected: namespaced .env "
+                    "[bold]LITE_NODE_BRANCH[/bold] differs between profiles "
+                    f"({summary}). The shared snapshotter-lite-v2 clone reads this only from "
+                    f"namespaced env for [bold]{final_selected_markets_str_list[0]}[/bold] (first market) "
+                    "and then from shell [bold]LITE_NODE_BRANCH[/bold] when set; other markets are not consulted for the checkout branch. Align branches or deploy in separate passes.",
+                    style="yellow",
+                )
 
         # Base snapshotter-lite-v2 clone branch: profile .env wins over BDS defaults.
         # (Previously BDS always forced "master", which ignored LITE_NODE_BRANCH in namespaced env.)

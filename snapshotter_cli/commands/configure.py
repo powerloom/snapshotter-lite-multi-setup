@@ -418,6 +418,7 @@ def configure_command(
     final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
     final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
     if final_env_vars.get("TELEGRAM_CHAT_ID"):
+        final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
         final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
 
     # Build env_contents list from the merged dict for display and writing
