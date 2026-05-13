@@ -253,7 +253,7 @@ Installing from source...
 
 Verifying installation...
 ✅ Installation successful!
-Version: Powerloom Snapshotter CLI version: 0.2.0 (pip)
+Version: Powerloom Snapshotter CLI version: 0.4.1 (pip)
 
 ✅ Installation complete!
 

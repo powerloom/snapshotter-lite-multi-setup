@@ -10,12 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **PyPI publish for the v0.4.0 GitHub release** — The release workflow builds wheels/sdist from `pyproject.toml`; that file still listed **0.3.1**, so uploads targeted an already-published version and failed. Package version is now **0.4.1** with **`uv.lock`** in sync.
 - **BDS default `LOCAL_COLLECTOR_IMAGE_TAG`** — `configure` wrote **`latest`** into profile `.env` for every market; `deployment` only used `setdefault("master")`, so the profile value won and Compose pulled the wrong GHCR tag. BDS markets now default **`master`** in `configure`, **`latest` is no longer applied** as a generic fallback for BDS in `deployment`, and deploy **normalizes** empty/`latest` → **`master`** for `IMAGE_TAG` and `LOCAL_COLLECTOR_IMAGE_TAG` so existing profiles fix themselves on the next deploy. Non-BDS markets keep **`latest`** for the local collector when unset.
+- **Import order in `configure.py`** — `isort --check` on CI failed after adding `BDS_DATA_MARKET_NAMES`; imports sorted for `black`/`isort` profile.
 
 ### Added
 - **`publish-pypi.yml` release guard** — On `release` or `refs/tags/v*`, CI fails if the tag name (without leading `v`) does not match `version` in `pyproject.toml`, so tag and package version cannot diverge before `uv build`.
 
 ### Changed
-- **`docs/DSV_MAINNET_SETUP.md`** — Pre-built binary example URLs point at **v0.4.1** (match the GitHub release tag you install).
+- **`docs/DSV_MAINNET_SETUP.md`** — Pre-built binary example URLs point at **v0.4.1**; sample install verification line shows CLI **0.4.1**.
 
 ## [v0.4.0] - 2026-05-13
 
