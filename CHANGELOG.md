@@ -5,10 +5,20 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.4.0] - 2026-05-13
+
+### Fixed
+- **`LITE_NODE_BRANCH` ignored for BDS markets** - Deploy previously forced `master` for BDS DSV markets before reading the profile namespaced `.env`, so `LITE_NODE_BRANCH` (e.g. `experimental`) was never applied. Profile/shell `LITE_NODE_BRANCH` now takes precedence; `master` is only the fallback when unset for BDS.
+- **BDS Docker image tags overwritten** - `deployment.py` was assigning `IMAGE_TAG` and `LOCAL_COLLECTOR_IMAGE_TAG` to `master` for BDS markets after merging the profile `.env`, so custom tags were ignored. **Git clone branch and container image tag are separate**; both now use `setdefault` so namespaced env can set `IMAGE_TAG` / `LOCAL_COLLECTOR_IMAGE_TAG`. The `:master` images are published on GHCR for [lite-v2](https://github.com/powerloom/snapshotter-lite-v2/pkgs/container/snapshotter-lite-v2) and [local-collector](https://github.com/powerloom/snapshotter-lite-local-collector/pkgs/container/snapshotter-lite-local-collector); if pulls still return `denied`, try `docker login ghcr.io` (anonymous rate limits) or fix stale credentials.
+- **Fork-only config/compute repo override** - If profile `.env` sets `SNAPSHOT_CONFIG_REPO` or `SNAPSHOTTER_COMPUTE_REPO`, curated-datamarkets branch/commit from `sources.json` are **not** injected (avoiding mismatched clones). When no repo override exists, snapshot and compute repos are filled from market JSON as a coupled set (`*_REPO`, `*_BRANCH`, optional `*_COMMIT`).
 
 ### Added
-- **`--force` / `-f` flag for deploy command** - Skip slot ownership validation when deploying with explicit `--slot`/`--slots` flags. Useful when deploying slots that will be transferred or when the RPC returns stale data. Available in both CLI (`powerloom-snapshotter-cli deploy --force`) and legacy script (`multi_clone.py --force`).
+- **Custom snapshot config and compute repos (profile overrides)** - Namespaced profile `.env` may set `SNAPSHOT_CONFIG_REPO`, `SNAPSHOT_CONFIG_REPO_BRANCH`, `SNAPSHOT_CONFIG_REPO_COMMIT`, `SNAPSHOTTER_COMPUTE_REPO`, `SNAPSHOTTER_COMPUTE_REPO_BRANCH`, and `SNAPSHOTTER_COMPUTE_REPO_COMMIT`. `deployment.py` loads the profile first; market defaults apply **only where the corresponding repo URL is still unset** (see coupling fix above), so forks can override repos without silently inheriting unrelated branches/commits.
+- **Telegram / reporting env parity with snapshotter-lite-v2** - Generated and template `.env` files now include defaults aligned with the lite node: `TELEGRAM_NOTIFICATION_COOLDOWN` defaults to **300** (seconds), **`TELEGRAM_MISSED_BATCH_SIZE`** defaults to **10** (minimum queued missed-snapshot items before a `MISSED_SNAPSHOT` Telegram is sent; see lite-v2). Wired in `snapshotter_cli/utils/deployment.py` (`setdefault`), `multi_clone.py` env template (`generate_env_file_contents` forwards cooldown/missed-batch), `configure` (ordered template fields + `setdefault` when `TELEGRAM_CHAT_ID` is set), and `profile export` safe keys so operators can see the value without secrets.
+- **Deploy `--force` / `-f` (documentation)** — The deploy command already supported `--force` / `-f` for skipping slot ownership validation with `--slot` / `--slots`; changelog now spells this out and notes parity with legacy `multi_clone.py --force`.
+
+### Improved
+- **Multi-market deploy** — Namespaced `.env` for the snapshotter-lite-v2 checkout is still loaded from the **first** selected market only (shared base clone). Selecting multiple markets with different **`LITE_NODE_BRANCH`** entries in profiles now prints a CLI warning explaining that mismatch; align branches or deploy in separate passes.
 
 ## [v0.3.1] - 2026-02-26
 

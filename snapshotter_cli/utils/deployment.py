@@ -3,11 +3,12 @@ import shutil
 import subprocess
 import time
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from snapshotter_cli.utils.console import console
 from snapshotter_cli.utils.models import (  # PowerloomChainConfig is the one with .name
     ChainConfig,
+    ComputeConfig,
     MarketConfig,
 )
 
@@ -38,6 +39,70 @@ def parse_env_file_vars(file_path: str) -> Dict[str, str]:
                     key, value = line.split("=", 1)
                     env_vars[key.strip()] = value.strip()
     return env_vars
+
+
+def load_namespaced_env_for_deploy_market(
+    active_profile: str,
+    norm_pl_chain_lower: str,
+    market_name: str,
+    market_obj: MarketConfig,
+) -> Tuple[Optional[Dict[str, str]], str]:
+    """Load namespaced `.env` for one chain + market using profile → legacy `~/.powerloom…/envs` → cwd."""
+    from snapshotter_cli.utils.profile import get_profile_env_path
+
+    norm_market_for_file = market_name.lower()
+    norm_source_chain = market_obj.sourceChain.lower().replace("-", "_")
+    primary = get_profile_env_path(
+        active_profile,
+        norm_pl_chain_lower,
+        norm_market_for_file,
+        norm_source_chain,
+    )
+    if primary.exists():
+        return parse_env_file_vars(str(primary)), "profile"
+
+    potential_name = CONFIG_ENV_FILENAME_TEMPLATE.format(
+        norm_pl_chain_lower,
+        norm_market_for_file,
+        norm_source_chain,
+    )
+    legacy = CONFIG_DIR / potential_name
+    if legacy.exists():
+        return parse_env_file_vars(str(legacy)), "legacy"
+
+    cwd_candidate = Path(os.getcwd()) / potential_name
+    if cwd_candidate.exists():
+        return parse_env_file_vars(str(cwd_candidate)), "cwd"
+
+    return None, ""
+
+
+def apply_snapshot_config_repo_from_market(
+    final_env_vars: Dict[str, str], config: ComputeConfig
+) -> None:
+    """Fill SNAPSHOT_CONFIG_* from market JSON only when the repo URL was not set in profile .env.
+
+    If SNAPSHOT_CONFIG_REPO is overridden locally, curated branch/commit are not applied —
+    avoids checking out curated branches on an unrelated fork.
+    """
+    if "SNAPSHOT_CONFIG_REPO" in final_env_vars:
+        return
+    final_env_vars["SNAPSHOT_CONFIG_REPO"] = str(config.repo)
+    final_env_vars["SNAPSHOT_CONFIG_REPO_BRANCH"] = config.branch
+    if config.commit:
+        final_env_vars["SNAPSHOT_CONFIG_REPO_COMMIT"] = config.commit
+
+
+def apply_compute_repo_from_market(
+    final_env_vars: Dict[str, str], compute: ComputeConfig
+) -> None:
+    """Same coupling as snapshot config repo for SNAPSHOTTER_COMPUTE_*."""
+    if "SNAPSHOTTER_COMPUTE_REPO" in final_env_vars:
+        return
+    final_env_vars["SNAPSHOTTER_COMPUTE_REPO"] = str(compute.repo)
+    final_env_vars["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = compute.branch
+    if compute.commit:
+        final_env_vars["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = compute.commit
 
 
 def run_git_command(command: list[str], cwd: Path, desc: str):
@@ -294,9 +359,10 @@ def deploy_snapshotter_instance(
         "BDS_DEVNET_ALPHA_UNISWAPV3",
         "BDS_MAINNET_UNISWAPV3",
     ):
-        # For BDS deployments, force lite node and local collector image tags to master
-        final_env_vars["IMAGE_TAG"] = "master"
-        final_env_vars["LOCAL_COLLECTOR_IMAGE_TAG"] = "master"
+        # BDS: default GHCR tags to master if unset; profile namespaced .env must win (same as LITE_NODE_BRANCH).
+        # Previously forced "master" here and overwrote IMAGE_TAG from profile .env.
+        final_env_vars.setdefault("IMAGE_TAG", "master")
+        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
@@ -356,17 +422,9 @@ def deploy_snapshotter_instance(
     final_env_vars["PROTOCOL_STATE_CONTRACT"] = (
         market_config.powerloomProtocolStateContractAddress
     )
-    final_env_vars["SNAPSHOT_CONFIG_REPO"] = str(market_config.config.repo)
-    final_env_vars["SNAPSHOT_CONFIG_REPO_BRANCH"] = market_config.config.branch
-    # Set commit ID if available (from sources.json)
-    if market_config.config.commit:
-        final_env_vars["SNAPSHOT_CONFIG_REPO_COMMIT"] = market_config.config.commit
-
-    final_env_vars["SNAPSHOTTER_COMPUTE_REPO"] = str(market_config.compute.repo)
-    final_env_vars["SNAPSHOTTER_COMPUTE_REPO_BRANCH"] = market_config.compute.branch
-    # Set commit ID if available (from sources.json)
-    if market_config.compute.commit:
-        final_env_vars["SNAPSHOTTER_COMPUTE_REPO_COMMIT"] = market_config.compute.commit
+    # Config/compute repo vars: coupled — see apply_*_repo_from_market docstrings.
+    apply_snapshot_config_repo_from_market(final_env_vars, market_config.config)
+    apply_compute_repo_from_market(final_env_vars, market_config.compute)
 
     final_env_vars["POWERLOOM_CHAIN"] = norm_pl_chain_name
     final_env_vars["NAMESPACE"] = market_name_upper
@@ -390,6 +448,7 @@ def deploy_snapshotter_instance(
     )  # Simplified default
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
+    final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
 
     # Normalize boolean env vars to lowercase AFTER all values are set
     # This handles cases where env files have "False" or "True" instead of "false" or "true"

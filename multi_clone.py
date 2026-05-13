@@ -74,6 +74,7 @@ def env_file_template(
     stream_pool_health_check_interval: int = 30,
     local_collector_image_tag: str = "latest",
     telegram_notification_cooldown: int = 300,
+    telegram_missed_batch_size: int = 10,
     connection_refresh_interval_sec: int = 60,
     override_defaults: str = "false",
 ) -> str:
@@ -107,6 +108,7 @@ TELEGRAM_CHAT_ID={telegram_chat_id}
 TELEGRAM_MESSAGE_THREAD_ID={telegram_message_thread_id}
 CONNECTION_REFRESH_INTERVAL_SEC={connection_refresh_interval_sec}
 TELEGRAM_NOTIFICATION_COOLDOWN={telegram_notification_cooldown}
+TELEGRAM_MISSED_BATCH_SIZE={telegram_missed_batch_size}
 OVERRIDE_DEFAULTS={override_defaults}
 """
 
@@ -130,6 +132,8 @@ def generate_env_file_contents(data_market_namespace: str, **kwargs) -> str:
         max_stream_pool_size=kwargs["max_stream_pool_size"],
         stream_pool_health_check_interval=kwargs["stream_pool_health_check_interval"],
         local_collector_image_tag=kwargs["local_collector_image_tag"],
+        telegram_notification_cooldown=kwargs.get("telegram_notification_cooldown", 300),
+        telegram_missed_batch_size=kwargs.get("telegram_missed_batch_size", 10),
         connection_refresh_interval_sec=kwargs["connection_refresh_interval_sec"],
         override_defaults=kwargs.get("override_defaults", "false"),
     )

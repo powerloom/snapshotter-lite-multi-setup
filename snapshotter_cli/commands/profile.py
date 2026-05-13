@@ -343,6 +343,7 @@ def export_profile_command(
             # Include non-sensitive settings
             safe_keys = [
                 "TELEGRAM_NOTIFICATION_COOLDOWN",
+                "TELEGRAM_MISSED_BATCH_SIZE",
                 "TELEGRAM_MESSAGE_THREAD_ID",
                 "MAX_STREAM_POOL_SIZE",
                 "CONNECTION_REFRESH_INTERVAL_SEC",
