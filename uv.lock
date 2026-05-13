@@ -1278,7 +1278,7 @@ wheels = [
 
 [[package]]
 name = "web3"
-version = "7.12.1"
+version = "7.15.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -1296,9 +1296,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/5e/1660d8d0f78e3391cc48833ddd7a2bcc7e02d5cf267a5ae5defa6d3e459d/web3-7.12.1.tar.gz", hash = "sha256:97f6a116ccaeb5907bb4cb6c771cc23bc942bf09528a840189e9b509b7b8347c", size = 2197920, upload-time = "2025-07-14T16:34:24.958Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/93/84/1516ee335e89e4d7d0837895d21091244ee3189d1ffe76fa435d2bd15f4e/web3-7.15.0.tar.gz", hash = "sha256:2a2bcbab8fcf120c2256ddbdc88fcc80a47c100ad758659a980e9fab66609171", size = 2211838, upload-time = "2026-04-02T18:20:40.355Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/04/60/053fc9381fbdb8ac12b1af7b105d7de3f07b400761c335d2021f82fceddb/web3-7.12.1-py3-none-any.whl", hash = "sha256:eac9a0d4bba128a0811828312ae0faaaa122a258efffd77e1e7cf06a0629a043", size = 1369540, upload-time = "2025-07-14T16:34:22.239Z" },
+    { url = "https://files.pythonhosted.org/packages/2b/f0/ef9b82557b22b1cdb95ec7863d1d9897ed3b9e096a1af5e046fb892efdc0/web3-7.15.0-py3-none-any.whl", hash = "sha256:bbeba510aaa4eb3c99662d911db9d2a648ab40f608cf0269065f7db1d1d0b0c0", size = 1373052, upload-time = "2026-04-02T18:20:36.757Z" },
 ]
 
 [[package]]
