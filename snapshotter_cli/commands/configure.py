@@ -9,10 +9,10 @@ from rich.panel import Panel
 
 from snapshotter_cli.utils.console import Prompt, config_prompt, console
 from snapshotter_cli.utils.deployment import (
+    BDS_DATA_MARKET_NAMES,
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
     calculate_connection_refresh_interval,
-    BDS_DATA_MARKET_NAMES,
 )
 from snapshotter_cli.utils.models import CLIContext, MarketConfig, PowerloomChainConfig
 
