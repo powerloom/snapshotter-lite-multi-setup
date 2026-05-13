@@ -5,7 +5,7 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [v0.4.0] - 2026-05-13
 
 ### Fixed
 - **`LITE_NODE_BRANCH` ignored for BDS markets** - Deploy previously forced `master` for BDS DSV markets before reading the profile namespaced `.env`, so `LITE_NODE_BRANCH` (e.g. `experimental`) was never applied. Profile/shell `LITE_NODE_BRANCH` now takes precedence; `master` is only the fallback when unset for BDS.
