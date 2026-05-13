@@ -27,6 +27,18 @@ CLI_CONFIG_DIR = Path.home() / ".powerloom-snapshotter-cli"
 PROFILES_DIR = CLI_CONFIG_DIR / "profiles"
 DEFAULT_PROFILE = "default"
 
+# BDS DSV markets: GHCR tags are `master` / branch names — not Docker Hub `latest`.
+BDS_DATA_MARKET_NAMES = frozenset(
+    {
+        "BDS_DEVNET_ALPHA_UNISWAPV3",
+        "BDS_MAINNET_UNISWAPV3",
+    },
+)
+
+
+def is_bds_market(market_name: str) -> bool:
+    return market_name.upper() in BDS_DATA_MARKET_NAMES
+
 
 def parse_env_file_vars(file_path: str) -> Dict[str, str]:
     """Parses a .env file and returns a dictionary of key-value pairs."""
@@ -355,10 +367,7 @@ def deploy_snapshotter_instance(
     # Note: DEV_MODE not forced - user controls via namespaced env file
     # Set DEV_MODE=true in namespaced env to build from source instead of using pre-built images
     # For production deployments (DEV_MODE not set), use pre-built images
-    if market_config.name.upper() in (
-        "BDS_DEVNET_ALPHA_UNISWAPV3",
-        "BDS_MAINNET_UNISWAPV3",
-    ):
+    if is_bds_market(market_config.name):
         # BDS: default GHCR tags to master if unset; profile namespaced .env must win (same as LITE_NODE_BRANCH).
         # Previously forced "master" here and overwrote IMAGE_TAG from profile .env.
         final_env_vars.setdefault("IMAGE_TAG", "master")
@@ -443,12 +452,22 @@ def deploy_snapshotter_instance(
     if "STREAM_POOL_HEALTH_CHECK_INTERVAL" not in final_env_vars:
         final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"
     final_env_vars.setdefault("DATA_MARKET_IN_REQUEST", "false")
-    final_env_vars.setdefault(
-        "LOCAL_COLLECTOR_IMAGE_TAG", "latest"
-    )  # Simplified default
+    # Non-BDS: local collector has historically used `latest`; BDS uses GHCR `master` (see block above + normalize below)
+    if not is_bds_market(market_config.name):
+        final_env_vars.setdefault(
+            "LOCAL_COLLECTOR_IMAGE_TAG", "latest"
+        )  # legacy non-BDS
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
     final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
+
+    # `configure` used to seed LOCAL_COLLECTOR_IMAGE_TAG=latest for all markets; namespaced .env then
+    # prevented BDS setdefault("master") from applying. Normalize empty/latest → master for BDS only.
+    if is_bds_market(market_config.name):
+        for _img_key in ("IMAGE_TAG", "LOCAL_COLLECTOR_IMAGE_TAG"):
+            _v = (final_env_vars.get(_img_key) or "").strip().lower()
+            if _v in ("", "latest"):
+                final_env_vars[_img_key] = "master"
 
     # Normalize boolean env vars to lowercase AFTER all values are set
     # This handles cases where env files have "False" or "True" instead of "false" or "true"

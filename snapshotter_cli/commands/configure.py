@@ -12,6 +12,7 @@ from snapshotter_cli.utils.deployment import (
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
     calculate_connection_refresh_interval,
+    BDS_DATA_MARKET_NAMES,
 )
 from snapshotter_cli.utils.models import CLIContext, MarketConfig, PowerloomChainConfig
 
@@ -414,9 +415,13 @@ def configure_command(
     if final_local_collector_p2p_port:
         final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = final_local_collector_p2p_port
 
-    # Set default values for LITE_NODE_BRANCH and LOCAL_COLLECTOR_IMAGE_TAG if not present
-    final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
-    final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
+    # BDS: GHCR images track `master` / branches; `latest` is wrong for lite-v2 + local-collector on GHCR.
+    if selected_market_obj.name.upper() in BDS_DATA_MARKET_NAMES:
+        final_env_vars.setdefault("LITE_NODE_BRANCH", "master")
+        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
+    else:
+        final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
+        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
     if final_env_vars.get("TELEGRAM_CHAT_ID"):
         final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
         final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
