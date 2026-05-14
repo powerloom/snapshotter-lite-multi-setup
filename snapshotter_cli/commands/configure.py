@@ -9,7 +9,6 @@ from rich.panel import Panel
 
 from snapshotter_cli.utils.console import Prompt, config_prompt, console
 from snapshotter_cli.utils.deployment import (
-    BDS_DATA_MARKET_NAMES,
     CONFIG_DIR,
     CONFIG_ENV_FILENAME_TEMPLATE,
     calculate_connection_refresh_interval,
@@ -415,13 +414,9 @@ def configure_command(
     if final_local_collector_p2p_port:
         final_env_vars["LOCAL_COLLECTOR_P2P_PORT"] = final_local_collector_p2p_port
 
-    # BDS: GHCR images track `master` / branches; `latest` is wrong for lite-v2 + local-collector on GHCR.
-    if selected_market_obj.name.upper() in BDS_DATA_MARKET_NAMES:
-        final_env_vars.setdefault("LITE_NODE_BRANCH", "master")
-        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
-    else:
-        final_env_vars.setdefault("LITE_NODE_BRANCH", "main")
-        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "latest")
+    # GHCR lite-v2 / local-collector tags track `master` (and named branches), not `latest` / `main`.
+    final_env_vars.setdefault("LITE_NODE_BRANCH", "master")
+    final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
     if final_env_vars.get("TELEGRAM_CHAT_ID"):
         final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
         final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")

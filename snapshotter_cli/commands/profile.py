@@ -349,6 +349,7 @@ def export_profile_command(
                 "CONNECTION_REFRESH_INTERVAL_SEC",
                 "LITE_NODE_BRANCH",
                 "LOCAL_COLLECTOR_IMAGE_TAG",
+                "POWERLOOM_CLI_CUSTOM_LITE_IMAGES",
                 "POWERLOOM_RPC_URL",
                 "TELEGRAM_REPORTING_URL",
             ]

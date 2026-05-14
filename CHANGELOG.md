@@ -5,6 +5,11 @@ All notable changes to the Powerloom Snapshotter CLI and setup tools will be doc
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`POWERLOOM_CLI_CUSTOM_LITE_IMAGES`** — Set to `1` / `true` / `yes` / `on` in the **namespaced profile** `.env` to skip BDS `IMAGE_TAG` / `LOCAL_COLLECTOR_IMAGE_TAG` `master` setdefaults, skip BDS-mainnet coercion of `LITE_NODE_BRANCH` / image tags to `master`, and skip auto `LOCAL_COLLECTOR_IMAGE_TAG` defaults for BDS markets (set `IMAGE_TAG`, `LOCAL_COLLECTOR_IMAGE_TAG`, and `LITE_NODE_BRANCH` explicitly when testing a pre-release branch). The variable is **removed** from the generated instance `.env` so it is not passed through to Compose.
+
 ## [v0.4.1] - 2026-05-13
 
 ### Fixed
