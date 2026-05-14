@@ -475,9 +475,10 @@ def deploy_snapshotter_instance(
     if "STREAM_POOL_HEALTH_CHECK_INTERVAL" not in final_env_vars:
         final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"
     final_env_vars.setdefault("DATA_MARKET_IN_REQUEST", "false")
-    if is_bds_mainnet_deployment(
-        market_config.name, powerloom_chain_config.name
-    ) and not _custom_lite_images:
+    if (
+        is_bds_mainnet_deployment(market_config.name, powerloom_chain_config.name)
+        and not _custom_lite_images
+    ):
         final_env_vars.setdefault(
             "LOCAL_COLLECTOR_IMAGE_TAG", "master"
         )  # GHCR :master for BDS mainnet
@@ -490,9 +491,10 @@ def deploy_snapshotter_instance(
     final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
 
     # BDS mainnet only: legacy profile/templates sometimes had `main`/`latest`; coerce to GHCR `master`.
-    if is_bds_mainnet_deployment(
-        market_config.name, powerloom_chain_config.name
-    ) and not _custom_lite_images:
+    if (
+        is_bds_mainnet_deployment(market_config.name, powerloom_chain_config.name)
+        and not _custom_lite_images
+    ):
         _lb = (final_env_vars.get("LITE_NODE_BRANCH") or "").strip().lower()
         if _lb in ("", "main", "latest"):
             final_env_vars["LITE_NODE_BRANCH"] = "master"
