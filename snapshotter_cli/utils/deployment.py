@@ -40,6 +40,26 @@ def is_bds_market(market_name: str) -> bool:
     return market_name.upper() in BDS_DATA_MARKET_NAMES
 
 
+def is_bds_mainnet_deployment(market_name: str, pl_chain_name: str) -> bool:
+    """BDS DSV mainnet only — used for GHCR `master` image defaults / legacy tag normalization on deploy."""
+    return (
+        market_name.upper() == "BDS_MAINNET_UNISWAPV3"
+        and pl_chain_name.upper() == "MAINNET"
+    )
+
+
+# Profile namespaced `.env` only: when truthy, deploy skips BDS GHCR `master` image setdefaults and
+# BDS-mainnet branch/tag coercion so pre-release branches/tags are not overwritten each deploy.
+# Stripped from generated instance `.env` (not passed to containers).
+CUSTOM_LITE_IMAGES_ENV_KEY = "POWERLOOM_CLI_CUSTOM_LITE_IMAGES"
+
+
+def env_truthy(val: Optional[str]) -> bool:
+    if val is None:
+        return False
+    return val.strip().lower() in ("1", "true", "yes", "on")
+
+
 def parse_env_file_vars(file_path: str) -> Dict[str, str]:
     """Parses a .env file and returns a dictionary of key-value pairs."""
     env_vars = {}
@@ -346,6 +366,8 @@ def deploy_snapshotter_instance(
     )
     final_env_vars["SOURCE_RPC_URL"] = source_chain_rpc_url
 
+    _custom_lite_images = env_truthy(final_env_vars.get(CUSTOM_LITE_IMAGES_ENV_KEY))
+
     # Apply mesh/P2P defaults from market config when present (namespaced env still wins)
     if market_config.rendezvousPoint:
         final_env_vars.setdefault("RENDEZVOUS_POINT", market_config.rendezvousPoint)
@@ -370,8 +392,9 @@ def deploy_snapshotter_instance(
     if is_bds_market(market_config.name):
         # BDS: default GHCR tags to master if unset; profile namespaced .env must win (same as LITE_NODE_BRANCH).
         # Previously forced "master" here and overwrote IMAGE_TAG from profile .env.
-        final_env_vars.setdefault("IMAGE_TAG", "master")
-        final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
+        if not _custom_lite_images:
+            final_env_vars.setdefault("IMAGE_TAG", "master")
+            final_env_vars.setdefault("LOCAL_COLLECTOR_IMAGE_TAG", "master")
         final_env_vars.setdefault("LOCAL_COLLECTOR_P2P_PORT", "8001")
         # Health check port for local collector (default: 8080, can be overridden in pre-configured env)
         final_env_vars.setdefault("LOCAL_COLLECTOR_HEALTH_CHECK_PORT", "8080")
@@ -452,18 +475,27 @@ def deploy_snapshotter_instance(
     if "STREAM_POOL_HEALTH_CHECK_INTERVAL" not in final_env_vars:
         final_env_vars["STREAM_POOL_HEALTH_CHECK_INTERVAL"] = "60000"
     final_env_vars.setdefault("DATA_MARKET_IN_REQUEST", "false")
-    # Non-BDS: local collector has historically used `latest`; BDS uses GHCR `master` (see block above + normalize below)
-    if not is_bds_market(market_config.name):
+    if is_bds_mainnet_deployment(
+        market_config.name, powerloom_chain_config.name
+    ) and not _custom_lite_images:
+        final_env_vars.setdefault(
+            "LOCAL_COLLECTOR_IMAGE_TAG", "master"
+        )  # GHCR :master for BDS mainnet
+    elif not (is_bds_market(market_config.name) and _custom_lite_images):
         final_env_vars.setdefault(
             "LOCAL_COLLECTOR_IMAGE_TAG", "latest"
-        )  # legacy non-BDS
+        )  # legacy non-BDS; BDS devnet keeps tag from block above unless custom (then set in profile)
     final_env_vars.setdefault("CONNECTION_REFRESH_INTERVAL_SEC", "60")
     final_env_vars.setdefault("TELEGRAM_NOTIFICATION_COOLDOWN", "300")
     final_env_vars.setdefault("TELEGRAM_MISSED_BATCH_SIZE", "10")
 
-    # `configure` used to seed LOCAL_COLLECTOR_IMAGE_TAG=latest for all markets; namespaced .env then
-    # prevented BDS setdefault("master") from applying. Normalize empty/latest → master for BDS only.
-    if is_bds_market(market_config.name):
+    # BDS mainnet only: legacy profile/templates sometimes had `main`/`latest`; coerce to GHCR `master`.
+    if is_bds_mainnet_deployment(
+        market_config.name, powerloom_chain_config.name
+    ) and not _custom_lite_images:
+        _lb = (final_env_vars.get("LITE_NODE_BRANCH") or "").strip().lower()
+        if _lb in ("", "main", "latest"):
+            final_env_vars["LITE_NODE_BRANCH"] = "master"
         for _img_key in ("IMAGE_TAG", "LOCAL_COLLECTOR_IMAGE_TAG"):
             _v = (final_env_vars.get(_img_key) or "").strip().lower()
             if _v in ("", "latest"):
@@ -481,6 +513,14 @@ def deploy_snapshotter_instance(
         if var in final_env_vars:
             # Convert to string first (handles bool values from market_config), then lowercase
             final_env_vars[var] = str(final_env_vars[var]).lower()
+
+    final_env_vars.pop(CUSTOM_LITE_IMAGES_ENV_KEY, None)
+    if _custom_lite_images:
+        console.print(
+            f"  ℹ️ Custom lite images: skipping BDS `master` defaults and mainnet branch/tag coercion "
+            f"({CUSTOM_LITE_IMAGES_ENV_KEY} in profile .env).",
+            style="dim",
+        )
 
     # TELEGRAM_REPORTING_URL and TELEGRAM_CHAT_ID will be included if they were in the pre-configured .env
     # or global env vars that got loaded into namespaced_env_content (passed to get_credential originally).
