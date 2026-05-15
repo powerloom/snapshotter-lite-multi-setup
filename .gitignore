@@ -7,3 +7,4 @@ powerloom-mainnet-*/
 dist*/
 build*/
 *__pycache__*/
+demos*/
